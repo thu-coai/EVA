@@ -14,18 +14,24 @@ We construct a dataset named **WDC-Dialogue** from Chinese social media to train
 
 **EVA** is a Transformer-based dialogue model with a bi-directional encoder and a uni-directional decoder. We present the EVA's model details and a comparison with previous large-scale Chinese pre-trained dialogue models in the following table.
 
-<img src="fig/model.png" style="zoom:60%;" />
-
+<div align=center>
+<img src="fig/model.png" width="600" />
+</div>
+  
 ## Experiment
 
 We compare EVA with Chinese pre-trained models including [CDial-GPT](https://github.com/thu-coai/CDial-GPT) and [CPM](https://github.com/TsinghuaAI/CPM). Results in the automatic evaluation including uni-gram F1, ROUGE-L, BLEU-4 and distinct n-grams are shown as follows:
 
-<img src="fig/auto_eval.png" style="zoom:50%;" />
-
+<div align=center>
+<img src="fig/auto_eval.png" width="500" />
+</div>
+  
 We also present an example of multi-turn generation results in the interactive human evaluation:
 
-<img src="fig/example.png" style="zoom:70%;" />
-
+<div align=center>
+<img src="fig/example.png" width="500" />
+</div>
+  
 ## Citation
 
 ```
