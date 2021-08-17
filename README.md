@@ -17,7 +17,16 @@ We construct a dataset named **WDC-Dialogue** from Chinese social media to train
 <div align=center>
 <img src="fig/model.png" width="600" />
 </div>
-  
+
+The model can be downloaded in BAAI's repository. The downloaded folder should have the following structure:
+
+```[bash]
+eva/
+├── 222500
+│   └── mp_rank_00_model_states.pt
+├── latest_checkpointed_iteration.txt
+```
+
 ## 4 Experiment
 
 We compare EVA with Chinese pre-trained models including [CDial-GPT](https://github.com/thu-coai/CDial-GPT) and [CPM](https://github.com/TsinghuaAI/CPM). Results in the automatic evaluation including uni-gram F1, ROUGE-L, BLEU-4 and distinct n-grams are shown as follows:
