@@ -1,0 +1,8 @@
+.vscode/
+__pycache__/
+*.log
+debug*
+results/
+checkpoints/
+pretain_data/
+*.so
