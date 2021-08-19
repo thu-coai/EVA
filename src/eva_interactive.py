@@ -434,7 +434,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device):
                 all_input_tokens = all_input_tokens[:-1] + generation_token_ids + [tokenizer.sep_id]
 
                 print(">>> {}".format(tokenizer.decode(generation_token_ids)))
-                print(tokenizer.decode(all_input_tokens))
+                # print(tokenizer.decode(all_input_tokens))
 
 
 def initialize_distributed(args):
