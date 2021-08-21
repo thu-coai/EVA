@@ -2,7 +2,7 @@
 
 ## 1 Introduction
 
-EVA is an open-domain Chinese pre-trained model, which contains the largest Chinese dialogue model with 2.8B parameters and is pre-trained on WDC-Dialogue, including 1.4B Chinese dialogue data from different domains. Our paper, data, codes and model parameters will be released soon.
+EVA is an open-domain Chinese pre-trained model, which contains the largest Chinese dialogue model with 2.8B parameters and is pre-trained on WDC-Dialogue, including 1.4B Chinese dialogue data from different domains. Paper link: https://arxiv.org/abs/2108.01547.
 
 ## 2 Dataset
 
@@ -18,7 +18,7 @@ We construct a dataset named **WDC-Dialogue** from Chinese social media to train
 <img src="fig/model.png" width="600" />
 </div>
 
-The model can be downloaded in BAAI's repository. The downloaded folder should have the following structure:
+The model can be downloaded in [BAAI's repository](https://wudaoai.cn/model/detail/EVA). The downloaded folder should have the following structure:
 
 ```[bash]
 eva/
