@@ -51,7 +51,7 @@ We provide the inference code of EVA. The source code is provided in `src/`.
 For convience, please use the docker we provide to setup the environment:
 
 ```[bash]
-docker pull gyxthu17/eva:1.0
+docker pull gyxthu17/eva:1.2
 ```
 
 Since the environment is ready in the docker, you don't need to set any environmental variables. You may need to mount this directory to a directory in the docker. For example, to mount to /mnt, run the following code to run the docker image:
