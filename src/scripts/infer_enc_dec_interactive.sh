@@ -1,6 +1,6 @@
 #! /bin/bash
 
-WORKING_DIR=/path-to-eva/
+WORKING_DIR=/dataset/f1d6ea5b/gyx-eva/eva-origin/
 
 # Change for multinode config
 MP_SIZE=1
@@ -10,7 +10,9 @@ NUM_GPUS_PER_WORKER=1
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config.json"
 
-CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/enc_dec_eva-6-7/222500"
+# CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/enc_dec_eva-5-17/360000"
+# CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2//results/enc_dec_eva-depth-12-48-lr0.0005-wm0.01/"
+CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/"
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
 HOST_FILE="${WORKING_DIR}/src/configs/host_files/hostfile"

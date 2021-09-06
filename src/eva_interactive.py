@@ -307,6 +307,7 @@ def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-10000, remove_unk=Fal
 
     return logits
 
+from human_rules import get_resp, post_process
 
 def generate_samples(model, tokenizer: EncDecTokenizer, args, device):
     no_repeat_ngram_size = 3
@@ -321,15 +322,30 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device):
 
             if dist.get_rank() == 0:
                 input_text = input(">>> ")
-                all_input_tokens.extend(tokenizer.encode(input_text) + [tokenizer.sep_id, tokenizer.get_sentinel_id(0)])
-                input_len = len(all_input_tokens)
-                length_tensor = torch.tensor([input_len], dtype=torch.long).to(device)
-                token_tensor = torch.tensor(all_input_tokens, dtype=torch.long).to(device)
+                if input_text == "clear":
+                    print("Clear Dialog")
+                    all_input_tokens = []
+                    length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
+                else:
+                    resp = get_resp(all_input_tokens, input_text, tokenizer)
+                    if resp is not None:
+                        all_input_tokens.extend(tokenizer.encode(input_text) + [tokenizer.sep_id] + tokenizer.encode(resp) + [tokenizer.sep_id])
+                        length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
+                        print(">>> ", resp)
+                        print(tokenizer.decode(all_input_tokens))
+                    else:
+                        all_input_tokens.extend(tokenizer.encode(input_text) + [tokenizer.sep_id, tokenizer.get_sentinel_id(0)])
+                        input_len = len(all_input_tokens)
+                        length_tensor = torch.tensor([input_len], dtype=torch.long).to(device)
+                        token_tensor = torch.tensor(all_input_tokens, dtype=torch.long).to(device)
             else:
                 length_tensor = torch.zeros(1, dtype=torch.long).to(device)
             
             dist.barrier()
             dist.broadcast(length_tensor, 0)
+
+            if length_tensor[0] < 0:
+                continue
 
             if dist.get_rank() != 0:
                 token_tensor = torch.zeros(int(length_tensor), dtype=torch.long).to(device)
@@ -339,7 +355,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device):
 
             target_length = args.max_length
 
-            model_batch=get_inference_batch(token_tensor, device, batch_size, target_length, tokenizer, args)
+            model_batch = get_inference_batch(token_tensor, device, batch_size, target_length, tokenizer, args)
 
             enc_input_ids = model_batch['enc_input_ids']
             enc_attention_mask = model_batch['enc_attention_mask']
@@ -428,9 +444,10 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device):
                 gen_len += 1
                 unfinished_sents.mul_(tokens_to_add.ne(tokenizer.sep_id).long())
 
-            if torch.distributed.get_rank() == 0:
+            if dist.get_rank() == 0:
                 e = output_ids[0].cpu().tolist()
                 generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
+                generation_token_ids = post_process(all_input_tokens, input_text, generation_token_ids, tokenizer)
                 all_input_tokens = all_input_tokens[:-1] + generation_token_ids + [tokenizer.sep_id]
 
                 print(">>> {}".format(tokenizer.decode(generation_token_ids)))

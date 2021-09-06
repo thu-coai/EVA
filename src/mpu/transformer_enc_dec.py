@@ -619,7 +619,7 @@ class ParallelTransformer(nn.Module):
                 # unscaled_init_method(sigma=config.init_method_std),
                 has_relative_attention_bias=bool(i == 0),
                 # output_layer_init_method=output_layer_init_method,
-                is_decoder=is_decoder) for i in range(config.num_layers)]
+                is_decoder=is_decoder) for i in range(config.num_decoder_layers if self.is_decoder else config.num_layers)]
         )
 
         if deepspeed.checkpointing.is_configured():
