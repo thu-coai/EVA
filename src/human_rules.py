@@ -1,6 +1,7 @@
 from tokenization_enc_dec import EncDecTokenizer
 import random
 import re
+from fuzzywuzzy import fuzz
 
 greetings = [
 (
@@ -95,17 +96,14 @@ def check_resp(output_tokens, tokenizer: EncDecTokenizer):
     output_texts = tokenizer.decode(output_tokens)
     for priv_re in priv_re_list:
         if(re.search(priv_re, output_texts) != None):
-            print("检查到涉及个人隐私的词汇")
+            # print("检查到涉及个人隐私的词汇")
             return True
     if(len(output_texts)<low_quality_min_length):
         for lq_re in low_quality_re_list:
             if(re.search(lq_re, output_texts) != None):
-                print("检查到低质量生成")
+                # print("检查到低质量生成")
                 return True
     return False
-
-
-
 
 def get_resp(all_input_tokens, input_text, tokenizer: EncDecTokenizer):
     all_input_texts = tokenizer.decode(all_input_tokens)
@@ -117,17 +115,28 @@ def get_resp(all_input_tokens, input_text, tokenizer: EncDecTokenizer):
                 if p in input_text:
                     resp = random.choice(g[1])
                     return resp
-
+    waiting_list = []
     for g in in_context:
         for p in g[0]:
             if p in input_text:
-                resp = random.choice(g[1])
-                return resp
+                waiting_list.append(g)
+    return find_best(waiting_list, input_text)
 
-
-    return None
-
-
+def find_best(waiting_list, input_text):
+    if len(waiting_list) == 0:
+        return None
+    best_score = 0
+    best_resp = None
+    for g in waiting_list:
+        for p in g[0]:
+            temp_score = fuzz.ratio(p, input_text)
+            if temp_score > best_score:
+                best_resp = g
+                best_score = temp_score
+    if best_resp == None:
+        return None
+    return random.choice(best_resp[1]) 
+        
 def post_process(all_input_tokens, input_text, gen_text_ids, tokenizer: EncDecTokenizer):
     gen_text = tokenizer.decode(gen_text_ids)
     gen_text = gen_text.replace("#e-s[数字x]", "")

@@ -32,6 +32,7 @@ def add_model_config_args(parser: argparse.ArgumentParser):
                        '--tokenizer-model-type to specify which pretrained '
                        'BERT model to use')
     group.add_argument('--model-config', type=str)
+    group.add_argument("--ranker-config", type=str)
     group.add_argument('--attention-dropout', type=float, default=0.1,
                        help='dropout probability for attention weights')
     group.add_argument('--num-attention-heads', type=int, default=16,
@@ -155,6 +156,8 @@ def add_training_args(parser: argparse.ArgumentParser):
                        help='Do not save current rng state.')
     group.add_argument('--load', type=str, default=None,
                        help='Path to a directory containing a model checkpoint.')
+    group.add_argument("--ranker-load", type=str, default=None,
+                       help='Path to a directory containing a ranker model checkpoint')
     group.add_argument('--no-load-optim', action='store_true',
                        help='Do not load optimizer when loading checkpoint.')
     group.add_argument('--no-load-rng', action='store_true',
