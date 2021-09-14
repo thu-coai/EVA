@@ -48,9 +48,9 @@ We provide the inference code of EVA. The source code is provided in `src/`.
 
 ### 5.1 Environment
 
-The inference code occupies only about 7000MB GPU memory. So generally a single GPU is enough.
+The inference code occupies only about 7000MB GPU memory. So generally a single GPU is enough. We provide 2 options to set up the environment. We recommend to use our docker directly to avoid the bugs in deepspeed.
 
-For convenience, please use the docker we provide to setup the environment:
+#### Option 1: Docker
 
 ```[bash]
 docker pull gyxthu17/eva:1.2
@@ -59,8 +59,12 @@ docker pull gyxthu17/eva:1.2
 Since the environment is ready in the docker, you don't need to set any environment variables. You may need to mount this directory to a directory in the docker. For example, to mount to /mnt, run the following code to run the docker image:
 
 ```[bash]
-docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.0 /bin/bash
+docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.2 /bin/bash
 ```
+
+#### Option 2: Set up DeepSpeed
+
+If you insist to set up DeepSpeed by yourself, please make sure the version is `v0.3.9`. It can be installed from its [repo](https://github.com/microsoft/DeepSpeed/releases/tag/v0.3.9). Since there exists some bugs in DeepSpeed, you need to make some little modifications to this package. You can refer to https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11 for more information. Specifically, you need to modify two lines of code in `deepspeed/runtime/zero/stage1.py`. We provide the modified `stage1.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` in our repo. 
 
 ### 5.2 Run
 
