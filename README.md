@@ -64,7 +64,7 @@ docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.2 /bin/bash
 
 #### Option 2: Set up DeepSpeed
 
-If you insist to set up DeepSpeed by yourself, please make sure the version is `v0.3.9`. It can be installed from its [repo](https://github.com/microsoft/DeepSpeed/releases/tag/v0.3.9). Since there exists some bugs in DeepSpeed, you need to make some little modifications to this package. You can refer to https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11 for more information. Specifically, you need to modify two lines of code in `deepspeed/runtime/zero/stage1.py`. We provide the modified `stage1.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` in our repo. 
+If you insist to set up DeepSpeed by yourself, please make sure the version is `v0.3.9`. It can be installed from its [repo](https://github.com/microsoft/DeepSpeed/releases/tag/v0.3.9). Since there exists some bugs in DeepSpeed, you need to make some little modifications to this package. You can refer to https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11 for more information. Specifically, you need to modify several lines of code in `deepspeed/runtime/zero/stage1.py` and `deepspeed/runtime/engine.py`. We provide the modified `stage1.py` and `engine.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` and `deepspeed/runtime/engine.py` with `engine.py` in our repo. 
 
 ### 5.2 Run
 
