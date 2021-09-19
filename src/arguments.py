@@ -187,6 +187,9 @@ def add_evaluation_args(parser: argparse.ArgumentParser):
 
     group = parser.add_argument_group('validation', 'validation configurations')
 
+    group.add_argument('--rerank', action="store_true")
+    group.add_argument('--rerank_num', type=int, default=1)
+    group.add_argument("--human_rules", action="store_true")
     group.add_argument('--eval-batch-size', type=int, default=None,
                        help='Data Loader batch size for evaluation datasets.'
                        'Defaults to `--batch-size`')

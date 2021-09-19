@@ -352,8 +352,7 @@ def rerank(model, tokenizer, device, context, responses):
     return select_id, scores
     
     
-    
-    pass
+
 
 def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=None, ranker_tokenizer=None):
     init_list()
@@ -362,7 +361,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
     batch_size = 1
     _min_sent_length = 15
     # _max_regenerate_times = 5 # 最大重复生成次数
-    _sample_num = 5
+    _sample_num = args.rerank_num
     _sep_p = 0.9
     again = False
     model.eval()
@@ -376,16 +375,18 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
     with torch.no_grad():
         
         all_input_tokens = []
+        all_input_tokens_list = []
         context_utterances = []
         while True:
             min_sent_length = _min_sent_length # 最小句子长度
             sep_p = _sep_p # 结束概率
             # max_regenerate_times = _max_regenerate_times
             if dist.get_rank() == 0:
-                input_text = input(">>> ")
+                input_text = input("Usr >>> ")
                 if input_text == "clear":
                     print("Clear Dialog")
                     all_input_tokens = []
+                    all_input_tokens_list = []
                     context_utterances = []
                     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                 elif input_text == "set min_length":
@@ -393,12 +394,14 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                     _min_sent_length = float(min_length_input)
                     print("min_length set to", _min_sent_length)
                     all_input_tokens = []
+                    all_input_tokens_list = []
                     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                 elif input_text == "set sep_p":
                     sep_p_input = input("please enter the sep_p: ")
                     _sep_p = float(sep_p_input)
                     print("sep_p set to", _sep_p)
                     all_input_tokens = []
+                    all_input_tokens_list = []
                     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                 # elif input_text == "set again":
                 #     again_input = input("please set again: (1 means true)")
@@ -411,15 +414,23 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                 #     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                 else:
                     context_utterances.append(input_text)
-                    resp = get_resp(all_input_tokens, input_text, tokenizer)
+                    resp = None
+                    if args.human_rules:
+                        resp = get_resp(all_input_tokens, input_text, tokenizer)
                     if resp is not None:
                         context_utterances.append(resp)
-                        all_input_tokens.extend(tokenizer.encode(input_text) + [tokenizer.sep_id] + tokenizer.encode(resp) + [tokenizer.sep_id])
+                        all_input_tokens_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id] + tokenizer.encode(resp) + [tokenizer.sep_id])
                         length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
-                        print(">>> ", resp)
-                        print(tokenizer.decode(all_input_tokens))
+                        print("Sys >>> ", resp)
+                        # print(tokenizer.decode(all_input_tokens))
                     else:
-                        all_input_tokens.extend(tokenizer.encode(input_text) + [tokenizer.sep_id, tokenizer.get_sentinel_id(0)])
+                        all_input_tokens_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id])
+                        all_input_tokens = []
+                        for utt in all_input_tokens_list[::-1]:
+                            if len(all_input_tokens) + len(utt) + 1 <= 128:
+                                all_input_tokens = utt + all_input_tokens
+                        all_input_tokens.append(tokenizer.get_sentinel_id(0))
+                        print(tokenizer.decode(all_input_tokens))
                         input_len = len(all_input_tokens)
                         length_tensor = torch.tensor([input_len], dtype=torch.long).to(device)
                         token_tensor = torch.tensor(all_input_tokens, dtype=torch.long).to(device)
@@ -565,17 +576,17 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                 if ranker is not None:
                     select_id, scores = rerank(ranker, ranker_tokenizer, device, context_utterances, generation_str_list)
                 
-                for response, score in zip(generation_str_list, scores):
-                    print(f'response = {response}, score = {score}')
+                    for response, score in zip(generation_str_list, scores):
+                        print(f'response = {response}, score = {score}')
 
                 generation_token_ids = generation_token_ids_list[select_id]
                 # e = output_ids[0].cpu().tolist()
                 # generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
                 # generation_token_ids = post_process(all_input_tokens, input_text, generation_token_ids, tokenizer)
-                all_input_tokens = all_input_tokens[:-1] + generation_token_ids + [tokenizer.sep_id]
+                all_input_tokens_list.append(generation_token_ids + [tokenizer.sep_id])
                 context_utterances.append(generation_str_list[select_id])
                 
-                print(">>> {}".format(tokenizer.decode(generation_token_ids)))
+                print("Sys >>> {}".format(tokenizer.decode(generation_token_ids)))
                 # print(tokenizer.decode(all_input_tokens))
 
 
@@ -622,7 +633,9 @@ def main():
 
 
     # Ranker
-    ranker, ranker_tokenizer = setup_ranker_for_inference(args)
+    ranker, ranker_tokenizer = None, None
+    if args.rerank:
+        ranker, ranker_tokenizer = setup_ranker_for_inference(args)
 
     #get the tokenizer
     tokenizer = EncDecTokenizer(os.path.join(args.tokenizer_path, 'vocab.txt'))

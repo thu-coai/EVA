@@ -51,14 +51,14 @@ priv_re_list = [
 ]
 
 # 需要同时满足以下两个条件：长度小于low_quality_min_length且被正则匹配，进行重新生成
-low_quality_min_length = 7
+low_quality_min_length = 20
 low_quality_re_list = [
-    r'.+哈哈哈.+',
-    r'.+!!!.+!!!.+',
-    r'.+啊啊啊.+!!!',
-    r'.+啊啊啊.+哈哈哈.+',
-    r'.+。。。.+。。。.+',
-    r'.+<.+>.+',
+    r'.?哈哈哈.?',
+    r'.?!!!.?!!!.?',
+    r'.?啊啊啊.?!!!',
+    r'.?啊啊啊.?哈哈哈.?',
+    r'.?。。。.?。。。.?',
+    r'.?<.?>.?',
     r'好可爱',
     r'笑死我',
     r'好棒',
@@ -71,7 +71,7 @@ def init_list():
     """
     初始化in_context
     """
-    l = open("/dataset/f1d6ea5b/yjz/eva-origin/src/chatterbot.tsv", "r").read().split("\n")
+    l = open("/dataset/f1d6ea5b/gyx-eva/eva-origin/rules.txt", "r").read().split("\n")
     l1, l2 = [], []
     in_l1, in_l2 = [], []
     for i in l:
@@ -93,13 +93,16 @@ def check_resp(output_tokens, tokenizer: EncDecTokenizer):
     """
     需要重新生成时，返回true
     """
+    # return False
     output_texts = tokenizer.decode(output_tokens)
+    # print("output_texts = ", output_texts, "len = ", len(output_texts))
     for priv_re in priv_re_list:
         if(re.search(priv_re, output_texts) != None):
             # print("检查到涉及个人隐私的词汇")
             return True
     if(len(output_texts)<low_quality_min_length):
         for lq_re in low_quality_re_list:
+            # print(lq_re)
             if(re.search(lq_re, output_texts) != None):
                 # print("检查到低质量生成")
                 return True
@@ -112,14 +115,15 @@ def get_resp(all_input_tokens, input_text, tokenizer: EncDecTokenizer):
     if len(all_input_tokens) == 0:
         for g in greetings:
             for p in g[0]:
-                if p in input_text:
+                if fuzz.token_sort_ratio(p, input_text) > 70:
                     resp = random.choice(g[1])
                     return resp
     waiting_list = []
     for g in in_context:
         for p in g[0]:
-            if p in input_text:
+            if fuzz.token_sort_ratio(p, input_text) > 60:
                 waiting_list.append(g)
+                break
     return find_best(waiting_list, input_text)
 
 def find_best(waiting_list, input_text):
@@ -129,13 +133,14 @@ def find_best(waiting_list, input_text):
     best_resp = None
     for g in waiting_list:
         for p in g[0]:
-            temp_score = fuzz.ratio(p, input_text)
-            if temp_score > best_score:
+            temp_score = fuzz.token_sort_ratio(p, input_text)
+            if temp_score > best_score and temp_score > 70:
                 best_resp = g
                 best_score = temp_score
+                break
     if best_resp == None:
         return None
-    return random.choice(best_resp[1]) 
+    return random.choice(best_resp[1])
         
 def post_process(all_input_tokens, input_text, gen_text_ids, tokenizer: EncDecTokenizer):
     gen_text = tokenizer.decode(gen_text_ids)
