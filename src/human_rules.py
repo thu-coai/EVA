@@ -1,7 +1,10 @@
 from tokenization_enc_dec import EncDecTokenizer
 import random
 import re
+import os
 from fuzzywuzzy import fuzz
+from text_match import cal_match, new_cal_match
+import copy
 
 greetings = [
 (
@@ -12,22 +15,10 @@ greetings = [
     "您好，我是 EVA，今天天气不错，想不想一起出去玩儿",
     "您好，很高兴见到您，EVA 向您问好"]
 ),
-(
-    ["今天天气真好", "今天天气真不错"],
-    [
-        "是呀是呀，风也不大，太阳高高挂嘻嘻",
-        "趁着好天气一起出去玩儿吧！",
-        "很久没有这么好的天气了",
-        "北京的秋天是最美丽的"]
-),
 ]
 
-in_context = [
-(
-    ["天气怎么样", "天气如何", "天气咋样", "天气什么样"],
-    ["很好啊，是北京难得的好天气", "很好呀，阳光灿烂，非常适合出去玩儿", "哈哈哈我可不是天气预报小姐哦，但是感觉应该是不错呢"]
-)
-]
+in_context_rules = []
+repeition_resp = []
 
 simple_replace = [
     (
@@ -68,26 +59,50 @@ low_quality_re_list = [
 
 
 def init_list():
-    """
-    初始化in_context
-    """
-    l = open("/dataset/f1d6ea5b/gyx-eva/eva-origin/rules.txt", "r").read().split("\n")
-    l1, l2 = [], []
-    in_l1, in_l2 = [], []
-    for i in l:
-        if(len(i.split("\t")) == 2):
-            l1.append(i.split("\t")[0])
-            l2.append(i.split("\t")[1])
-    last_input = ""
-    for i in range(len(l1)):
-        if l1[i] == last_input:
-            in_l2.append(l2[i])
-        else:
-            in_context.append((in_l1, in_l2))
-            in_l1, in_l2 = [], []
-            in_l1.append(l1[i])
-            in_l2.append(l2[i])
-            last_input = l1[i]
+    # in_context_rules
+    all_rules = []
+    for path, dir_list, file_list in os.walk("/dataset/f1d6ea5b/gyx-eva/eva-origin/rules/in_context"):
+        for file_name in file_list:
+            with open(os.path.join(path, file_name)) as f:
+                rules = f.readlines()
+                all_rules.extend(rules)
+    # l = open("/dataset/f1d6ea5b/yjz/eva-origin/src/chatterbot.tsv", "r").read().split("\n")
+    all_rules = [x.strip() for x in all_rules]
+    for rule in all_rules:
+        if len(rule.split("\t")) != 2:
+            print(rule)
+        post, resp = rule.split("\t")
+        posts = post.split("|")
+        resps = resp.split("|")
+        in_context_rules.append((posts, resps))
+
+    # repeition_resp
+    # 0: normal
+    # 1: question
+    # 2: bye-bye
+    with open("/dataset/f1d6ea5b/gyx-eva/eva-origin/rules/repetition/resp.txt") as f:
+        lines = f.readlines()
+    for line in lines:
+        repeition_resp.append(line.strip().split("|"))
+
+    # l1, l2 = [], []
+    # in_l1, in_l2 = [], []
+    # for i in l:
+    #     if(len(i.split("\t")) == 2):
+    #         l1.append(i.split("\t")[0])
+    #         l2.append(i.split("\t")[1])
+    # last_input = ""
+    # for i in range(len(l1)):
+    #     if l1[i] == last_input:
+    #         in_l2.append(l2[i])
+    #     else:
+    #         if(in_l1 != []):
+    #             in_context.append((in_l1, in_l2))
+    #         in_l1, in_l2 = [], []
+    #         in_l1.append(l1[i])
+    #         in_l2.append(l2[i])
+    #         last_input = l1[i]
+
 
 def check_resp(output_tokens, tokenizer: EncDecTokenizer):
     """
@@ -108,39 +123,91 @@ def check_resp(output_tokens, tokenizer: EncDecTokenizer):
                 return True
     return False
 
-def get_resp(all_input_tokens, input_text, tokenizer: EncDecTokenizer):
-    all_input_texts = tokenizer.decode(all_input_tokens)
-    contexts = all_input_texts.split("<sep>")
 
-    if len(all_input_tokens) == 0:
+def get_resp(all_contexts_str, input_text, tokenizer: EncDecTokenizer):
+    usr_contexts_str = [x for i, x in enumerate(all_contexts_str) if i % 2 == 0]
+    sys_contexts_str = [x for i, x in enumerate(all_contexts_str) if i % 2 == 1]
+
+    # begining of he dialog
+    if len(all_contexts_str) == 1:
         for g in greetings:
             for p in g[0]:
-                if fuzz.token_sort_ratio(p, input_text) > 70:
+                if cal_match(p, input_text) > 0.8:
                     resp = random.choice(g[1])
                     return resp
+    
+    # usr repetition
+    num = sum(1 if fuzz.token_sort_ratio(x, input_text) > 60 else 0 for x in usr_contexts_str[-5:])
+    if num > 2:
+        return handle_usr_repetition(input_text, num, sys_contexts_str)
     waiting_list = []
-    for g in in_context:
+    for g in in_context_rules:
         for p in g[0]:
             if fuzz.token_sort_ratio(p, input_text) > 60:
                 waiting_list.append(g)
                 break
-    return find_best(waiting_list, input_text)
+    return find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str)
 
-def find_best(waiting_list, input_text):
+
+def is_question(input_text):
+    a = (input_text[-1] in ["?", "？"])
+    b = (input_text[-1] in ["吗"])
+
+    return a or b
+
+
+def handle_sys_repetition(input_text, cands, sys_contexts_str):
+    cands_copy = copy.deepcopy(cands)
+    random.shuffle(cands_copy)
+    for r in cands_copy:
+        if r not in sys_contexts_str:
+            return r
+    else:
+        return None
+
+
+def handle_usr_repetition(input_text, num, sys_contexts_str):
+    if num > 3:
+        return handle_sys_repetition(input_text, repeition_resp[2], sys_contexts_str)
+    if is_question(input_text):
+        return handle_sys_repetition(input_text, repeition_resp[1], sys_contexts_str)
+    
+    return handle_sys_repetition(input_text, repeition_resp[0], sys_contexts_str)
+
+
+def find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str):
     if len(waiting_list) == 0:
         return None
     best_score = 0
     best_resp = None
     for g in waiting_list:
         for p in g[0]:
-            temp_score = fuzz.token_sort_ratio(p, input_text)
-            if temp_score > best_score and temp_score > 70:
+            print(input_text, " ", p, " ", cal_match(p, input_text), "fuzzy: ", fuzz.token_sort_ratio(p, input_text))
+            temp_score = cal_match(p, input_text)
+            if temp_score > best_score:
                 best_resp = g
                 best_score = temp_score
                 break
-    if best_resp == None:
+    if best_resp == None or best_score < 0.1:
         return None
-    return random.choice(best_resp[1])
+    # return find_final_resp(input_text, best_resp)
+    return handle_sys_repetition(input_text, best_resp[1], sys_contexts_str)
+
+
+# def find_final_resp(input_text, best_resp):
+#     res_list = []
+#     best_score = 0
+#     for i in best_resp[1]:
+#         temp_score = cal_match(input_text, i)
+#         if(temp_score > best_score):
+#             best_score = temp_score
+#             res_list = []
+#             res_list.append(i)
+#         elif(temp_score == best_score):
+#             res_list.append(i)
+#     print(res_list)
+#     return random.choice(res_list)
+
         
 def post_process(all_input_tokens, input_text, gen_text_ids, tokenizer: EncDecTokenizer):
     gen_text = tokenizer.decode(gen_text_ids)
@@ -157,4 +224,3 @@ def post_process(all_input_tokens, input_text, gen_text_ids, tokenizer: EncDecTo
     gen_text_ids = tokenizer.encode(gen_text)
 
     return gen_text_ids
-    

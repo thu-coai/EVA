@@ -373,8 +373,6 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
     batch_size *= _sample_num
 
     with torch.no_grad():
-        
-        all_input_tokens = []
         all_input_tokens_list = []
         context_utterances = []
         while True:
@@ -385,7 +383,6 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                 input_text = input("Usr >>> ")
                 if input_text == "clear":
                     print("Clear Dialog")
-                    all_input_tokens = []
                     all_input_tokens_list = []
                     context_utterances = []
                     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
@@ -393,38 +390,27 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                     min_length_input = input("please enter the min_length: ")
                     _min_sent_length = float(min_length_input)
                     print("min_length set to", _min_sent_length)
-                    all_input_tokens = []
                     all_input_tokens_list = []
                     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                 elif input_text == "set sep_p":
                     sep_p_input = input("please enter the sep_p: ")
                     _sep_p = float(sep_p_input)
                     print("sep_p set to", _sep_p)
-                    all_input_tokens = []
                     all_input_tokens_list = []
                     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
-                # elif input_text == "set again":
-                #     again_input = input("please set again: (1 means true)")
-                #     if(again_input == "1"):
-                #         again = True
-                #     else:
-                #         again = False
-                #     print("again is now ", again)
-                #     all_input_tokens = []
-                #     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                 else:
                     context_utterances.append(input_text)
+                    all_input_tokens_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id])
                     resp = None
                     if args.human_rules:
-                        resp = get_resp(all_input_tokens, input_text, tokenizer)
+                        resp = get_resp(context_utterances, input_text, tokenizer)
                     if resp is not None:
                         context_utterances.append(resp)
-                        all_input_tokens_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id] + tokenizer.encode(resp) + [tokenizer.sep_id])
+                        all_input_tokens_list.append(tokenizer.encode(resp) + [tokenizer.sep_id])
                         length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                         print("Sys >>> ", resp)
                         # print(tokenizer.decode(all_input_tokens))
                     else:
-                        all_input_tokens_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id])
                         all_input_tokens = []
                         for utt in all_input_tokens_list[::-1]:
                             if len(all_input_tokens) + len(utt) + 1 <= 128:
