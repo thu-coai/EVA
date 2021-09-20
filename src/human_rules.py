@@ -4,6 +4,7 @@ import re
 import os
 from fuzzywuzzy import fuzz
 from text_match import cal_match, new_cal_match
+from vec_utils import cal_vec_match
 import copy
 
 greetings = [
@@ -143,7 +144,10 @@ def get_resp(all_contexts_str, input_text, tokenizer: EncDecTokenizer):
     waiting_list = []
     for g in in_context_rules:
         for p in g[0]:
-            if fuzz.token_sort_ratio(p, input_text) > 60:
+            # if fuzz.token_sort_ratio(p, input_text) > 60:
+            vec_match_score = cal_vec_match(p, input_text, tokenizer)
+            # print("vec_match_score", vec_match_score)
+            if vec_match_score > 0.8:
                 waiting_list.append(g)
                 break
     return find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str)
@@ -182,8 +186,8 @@ def find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str):
     best_resp = None
     for g in waiting_list:
         for p in g[0]:
-            print(input_text, " ", p, " ", cal_match(p, input_text), "fuzzy: ", fuzz.token_sort_ratio(p, input_text))
             temp_score = cal_match(p, input_text)
+            print(input_text, " ", p, " ", temp_score)
             if temp_score > best_score:
                 best_resp = g
                 best_score = temp_score
