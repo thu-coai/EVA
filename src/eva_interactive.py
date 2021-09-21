@@ -356,25 +356,31 @@ def check_relative(model, tokenizer, device, context_utterance):
     context = context_utterance[:-1]
     usr_resp = context_utterance[-1]
     max_len = 128
-    raw_batch = []
-    for i in range(len(context) - 1, 0, -1):
-        item = tokenizer("<uttsep>".join(context[i:]), usr_resp, max_length=max_len, truncation=True)
+    raw_batch, utt_index = [], []
+    trunc_context = None
+    for i in range(len(context) - 1, 0, -2):
+        trunc_context = tokenizer("<uttsep>".join(context[i-1:]), usr_resp, max_length=max_len, truncation=True)
+        raw_batch.append(tokenizer("<uttsep>".join(context[i-1:i+1]), usr_resp, max_length=max_len, truncation=True))
+        utt_index.append(i)
+        if len(trunc_context["input_ids"]) >= max_len:
+            break
+    if trunc_context is None:
+        return None, []
+    raw_batch.append(trunc_context)
+    for item in raw_batch:
         item['input_ids'] = torch.tensor(item['input_ids'], dtype=torch.long) 
         item['attention_mask'] = torch.tensor(item['attention_mask'], dtype=torch.float)
         item['token_type_ids'] = torch.tensor(item['token_type_ids'], dtype=torch.long)
-        raw_batch.append(item)
-        if len(item["input_ids"]) >= max_len:
-            break
+
     batch = {}
     batch['input_ids'] = pad_sequence([x['input_ids'] for x in raw_batch], batch_first=True, padding_value=tokenizer.pad_token_id).to(device)
     batch['attention_mask'] = pad_sequence([x['attention_mask'] for x in raw_batch], batch_first=True, padding_value=0).to(device)
     batch['token_type_ids'] = pad_sequence([x['token_type_ids'] for x in raw_batch], batch_first=True, padding_value=0).to(device)
     outputs = model(**batch)
-    logits = torch.softmax(outputs.logits, dim=-1)
-    scores = logits[:, 1].tolist()
-    select_id = np.argmax(scores)
-    trunc_k = len(context) - 1 - select_id + 1
-    return trunc_k, scores
+    is_relative = torch.argmax(outputs.logits, dim=-1)
+    is_relative = is_relative[:-1]
+    relative_utt = [k for x, k in zip(is_relative, utt_index) if x == 1]
+    return sorted(relative_utt), reversed(is_relative)
 
 
 def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=None, ranker_tokenizer=None):
@@ -433,13 +439,20 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                         print("Sys >>> ", resp)
                         # print(tokenizer.decode(all_input_tokens))
                     else:
-                        # trunc_k, trunc_scores = check_relative(ranker, ranker_tokenizer, device, context_utterances)
+                        trunc_index, is_relative = check_relative(ranker, ranker_tokenizer, device, context_utterances)
+                        print("trunc_index", trunc_index, "is_relative", is_relative)
+                        trunc_list = all_input_tokens_list
+                        if trunc_index is not None:
+                            trunc_list = []
+                            for k in trunc_index:
+                                trunc_list.extend(all_input_tokens_list[k-1:k+1])
+                            trunc_list.append(all_input_tokens_list[-1])
                         # print("trunc_k", trunc_k, "trunc_scores", trunc_scores)
                         # trunk_list = all_input_tokens_list[trunc_k:]
                         # all_input_tokens = []
-                        # for utt in trunk_list[::-1]:
+                        # for utt in all_input_tokens_list[::-1]:
                         all_input_tokens = []
-                        for utt in all_input_tokens_list[::-1]:
+                        for utt in trunc_list[::-1]:
                             if len(all_input_tokens) + len(utt) + 1 <= 128:
                                 all_input_tokens = utt + all_input_tokens
                         all_input_tokens.append(tokenizer.get_sentinel_id(0))
@@ -581,9 +594,12 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                     if not check_resp(generation_token_ids, tokenizer): # pass test
                         generation_token_ids_list.append(generation_token_ids)
                         generation_str_list.append(tokenizer.decode(generation_token_ids))
-                    #     print('[pass]: ', tokenizer.decode(generation_token_ids))
-                    # else:
-                    #     print('[fail]: ', tokenizer.decode(generation_token_ids))
+                if len(generation_str_list) == 0:
+                    for e in output_ids:
+                        generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
+                        generation_token_ids = post_process(all_input_tokens, input_text, generation_token_ids, tokenizer)
+                        generation_token_ids_list.append(generation_token_ids)
+                        generation_str_list.append(tokenizer.decode(generation_token_ids))  
                 
                 select_id = 0
                 if ranker is not None:

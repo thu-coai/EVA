@@ -192,7 +192,7 @@ def find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str):
                 best_resp = g
                 best_score = temp_score
                 break
-    if best_resp == None or best_score < 0.1:
+    if best_resp == None or best_score < 0.2:
         return None
     # return find_final_resp(input_text, best_resp)
     return handle_sys_repetition(input_text, best_resp[1], sys_contexts_str)
