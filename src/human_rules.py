@@ -20,6 +20,7 @@ greetings = [
 
 in_context_rules = []
 repeition_resp = []
+continue_resp = []
 
 simple_replace = [
     (
@@ -86,6 +87,13 @@ def init_list():
     for line in lines:
         repeition_resp.append(line.strip().split("|"))
 
+    # continue_resp
+    with open("/dataset/f1d6ea5b/gyx-eva/eva-origin/rules/in_context/continue.txt") as f:
+        lines = f.readlines()
+    for line in lines:
+        line = line.strip().split("\t")
+        continue_resp.extend(line[1].split("|"))
+
     # l1, l2 = [], []
     # in_l1, in_l2 = [], []
     # for i in l:
@@ -135,22 +143,32 @@ def get_resp(all_contexts_str, input_text, tokenizer: EncDecTokenizer):
             for p in g[0]:
                 if cal_match(p, input_text) > 0.8:
                     resp = random.choice(g[1])
-                    return resp
+                    return {"resp": resp, "continue": False}
     
     # usr repetition
     num = sum(1 if fuzz.token_sort_ratio(x, input_text) > 60 else 0 for x in usr_contexts_str[-5:])
     if num > 2:
-        return handle_usr_repetition(input_text, num, sys_contexts_str)
-    waiting_list = []
-    for g in in_context_rules:
-        for p in g[0]:
-            # if fuzz.token_sort_ratio(p, input_text) > 60:
-            vec_match_score = cal_vec_match(p, input_text, tokenizer)
-            # print("vec_match_score", vec_match_score)
-            if vec_match_score > 0.8:
-                waiting_list.append(g)
-                break
-    return find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str)
+        best_resp = handle_usr_repetition(input_text, num, sys_contexts_str)
+    else:
+        waiting_list = []
+        for g in in_context_rules:
+            for p in g[0]:
+                # if fuzz.token_sort_ratio(p, input_text) > 60:
+                vec_match_score = cal_vec_match(p, input_text, tokenizer)
+                # print("vec_match_score", vec_match_score)
+                if vec_match_score > 0.8:
+                    waiting_list.append(g)
+                    break
+        best_resp = find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str)
+    
+    if best_resp is None:
+        return None
+    else:
+        print(continue_resp)
+        if best_resp in continue_resp:
+            return {"resp": best_resp, "continue": True}
+        else:
+            return {"resp": best_resp, "continue": False}
 
 
 def is_question(input_text):
@@ -191,7 +209,7 @@ def find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str):
             if temp_score > best_score:
                 best_resp = g
                 best_score = temp_score
-                break
+
     if best_resp == None or best_score < 0.2:
         return None
     # return find_final_resp(input_text, best_resp)

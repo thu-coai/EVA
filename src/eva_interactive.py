@@ -17,6 +17,7 @@
 
 USE_TORCH_DDP = False
 
+from json import decoder
 import os
 import random
 import numpy as np
@@ -266,6 +267,7 @@ def get_masks_and_position_ids(args,
 
 def get_inference_batch(
         context_tokens,
+        decoder_token_tensor,
         device,
         batch_size,
         target_length,
@@ -276,7 +278,8 @@ def get_inference_batch(
     tokens = tokens.view(batch_size, -1).contiguous()
     tokens = tokens.to(device)
     
-    targets = torch.zeros(batch_size, target_length, dtype=torch.long, device=device) + tokenizer.get_sentinel_id(0)
+    targets = torch.zeros(batch_size, 1, dtype=torch.long, device=device) + tokenizer.get_sentinel_id(0)
+    targets = torch.cat([targets, decoder_token_tensor], dim=-1)
 
     # Get the masks and postition ids.
     model_batch = get_masks_and_position_ids(
@@ -432,13 +435,18 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                     resp = None
                     if args.human_rules:
                         resp = get_resp(context_utterances, input_text, tokenizer)
-                    if resp is not None:
+                    if resp is not None and not resp["continue"]:
+                        print("resp in repo", resp)
+                        resp = resp["resp"]
                         context_utterances.append(resp)
                         all_input_tokens_list.append(tokenizer.encode(resp) + [tokenizer.sep_id])
                         length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                         print("Sys >>> ", resp)
                         # print(tokenizer.decode(all_input_tokens))
                     else:
+                        prompt = ""
+                        if resp is not None:
+                            prompt = resp["resp"]
                         trunc_index, is_relative = check_relative(ranker, ranker_tokenizer, device, context_utterances)
                         print("trunc_index", trunc_index, "is_relative", is_relative)
                         trunc_list = all_input_tokens_list
@@ -457,47 +465,55 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                                 all_input_tokens = utt + all_input_tokens
                         all_input_tokens.append(tokenizer.get_sentinel_id(0))
                         print(tokenizer.decode(all_input_tokens))
+                        prompt_tokens = tokenizer.encode(prompt)                        
                         input_len = len(all_input_tokens)
-                        length_tensor = torch.tensor([input_len], dtype=torch.long).to(device)
+                        prompt_len = len(prompt_tokens)
+                        length_tensor = torch.tensor([input_len, prompt_len], dtype=torch.long).to(device)
                         token_tensor = torch.tensor(all_input_tokens, dtype=torch.long).to(device)
+                        decoder_token_tensor = torch.tensor(prompt_tokens, dtype=torch.long).to(device)
+
             else:
-                length_tensor = torch.zeros(1, dtype=torch.long).to(device)
+                length_tensor = torch.zeros(2, dtype=torch.long).to(device)
             
+            # encoder tensor
             dist.barrier()
             dist.broadcast(length_tensor, 0)
-
             if length_tensor[0] < 0:
                 continue
             if dist.get_rank() != 0:
-                token_tensor = torch.zeros(int(length_tensor), dtype=torch.long).to(device)
+                token_tensor = torch.zeros(int(length_tensor[0]), dtype=torch.long).to(device)
             dist.broadcast(token_tensor, 0)
+            if dist.get_rank() != 0:
+                decoder_token_tensor = torch.zeros(int(length_tensor[1]), dtype=torch.long).to(device)
+            if length_tensor[1] > 0:
+                dist.broadcast(decoder_token_tensor, 0)
+
             token_tensor = token_tensor.unsqueeze(0).repeat(batch_size, 1) # repeat
+            decoder_token_tensor = decoder_token_tensor.unsqueeze(0).repeat(batch_size, 1)
             target_length = args.max_length
-            model_batch = get_inference_batch(token_tensor, device, batch_size, target_length, tokenizer, args)
+            model_batch = get_inference_batch(token_tensor, decoder_token_tensor, device, batch_size, target_length, tokenizer, args)
+            dec_init_length = int(length_tensor[1]) + 1 # +1 for s_0
 
             min_sent_length = _min_sent_length # 最小句子长度
             sep_p = _sep_p # 结束概率
             
             enc_input_ids = model_batch['enc_input_ids']
             enc_attention_mask = model_batch['enc_attention_mask']
-            enc_position_ids = model_batch['enc_position_ids']
             enc_outputs = model(
                 enc_input_ids=enc_input_ids,
-                enc_position_ids=enc_position_ids,
                 enc_attention_mask=enc_attention_mask,
             )
             enc_hidden_states = enc_outputs["last_hidden_state"]
             
             # for generating responses
             # we only use the <go> token, so truncate other tokens
-            dec_input_ids = model_batch['dec_input_ids'][..., :1]
-            dec_attention_mask = model_batch['dec_attention_mask'][..., :1, :1]
-            dec_position_ids = model_batch['dec_position_ids'][..., :1]
+            dec_input_ids = model_batch['dec_input_ids'][..., :dec_init_length]
+            dec_attention_mask = model_batch['dec_attention_mask'][..., :dec_init_length, :dec_init_length]
             # we use past_key_values, so only the current token mask is needed
-            cross_attention_mask = model_batch['cross_attention_mask'][..., :1, :]
+            cross_attention_mask = model_batch['cross_attention_mask'][..., :dec_init_length, :]
             
             unfinished_sents = enc_input_ids.new(enc_input_ids.size(0)).fill_(1)
-            output_ids = enc_input_ids.new_zeros([enc_input_ids.size(0), 0])
+            output_ids = enc_input_ids.new_zeros([enc_input_ids.size(0), 0]) # not include the prompt
             output_probs = torch.zeros(batch_size, 1).to(device)
             prob_idx = torch.arange(batch_size)
             past_key_values = None
@@ -514,7 +530,6 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                 else:
                     dec_outputs, lm_logits = model(
                         dec_input_ids=dec_input_ids,
-                        dec_position_ids=dec_position_ids,
                         dec_attention_mask=dec_attention_mask,
                         cross_attention_mask=cross_attention_mask,
                         enc_hidden_states=enc_hidden_states,
@@ -571,13 +586,15 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                     
                     dec_input_ids = tokens_to_add.unsqueeze(-1)
                     output_ids = torch.cat([output_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
-                    dec_position_ids = dec_position_ids[:, -1:] + 1
                     # let the current token attend to all previous tokens
-                    dec_attention_mask = torch.cat([dec_attention_mask, dec_attention_mask[:, :, :, -1:]], dim=-1)
-                    
+                    dec_attention_mask = torch.cat([dec_attention_mask[:, :, -1:, :], dec_attention_mask[:, :, -1:, -1:]], dim=-1)
+                    cross_attention_mask = cross_attention_mask[:, :, -1:, :]
+
                 gen_len += 1
                 min_sent_length -= 1
                 unfinished_sents.mul_(tokens_to_add.ne(tokenizer.sep_id).long())
+            
+            output_ids = torch.cat([decoder_token_tensor, output_ids], dim=-1)
             # if check_resp(generation_token_ids, tokenizer) and max_regenerate_times > 0:
             #     set_random_seed(random.randint(0, 1000))
             #     continue
