@@ -63,8 +63,8 @@ def cal_vec_match(str1, str2, tokenizer: EncDecTokenizer):
 			vec_avg2 += matrix[wi[tokenizer.decode([i])]]
 		else:
 			return cal_fuzz_match(str1, str2)
-	vec_avg1 /= len(l1)
-	vec_avg2 /= len(l2)
+	vec_avg1 /= (len(l1) + 0.00001)
+	vec_avg2 /= (len(l2) + 0.00001)
 	score = cosine_similarity([vec_avg1, vec_avg2])[0][1]
 	# print(str1, " ", str2, "向量相似度：", score)
 	return score
