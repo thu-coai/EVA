@@ -436,7 +436,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                     if args.human_rules:
                         resp = get_resp(context_utterances, input_text, tokenizer)
                     if resp is not None and not resp["continue"]:
-                        print("resp in repo", resp)
+                        # print("resp in repo", resp)
                         resp = resp["resp"]
                         context_utterances.append(resp)
                         all_input_tokens_list.append(tokenizer.encode(resp) + [tokenizer.sep_id])
@@ -448,7 +448,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                         if resp is not None:
                             prompt = resp["resp"]
                         trunc_index, is_relative = check_relative(ranker, ranker_tokenizer, device, context_utterances)
-                        print("trunc_index", trunc_index, "is_relative", is_relative)
+                        # print("trunc_index", trunc_index, "is_relative", is_relative)
                         trunc_list = all_input_tokens_list
                         if trunc_index is not None:
                             trunc_list = []
@@ -464,7 +464,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                             if len(all_input_tokens) + len(utt) + 1 <= 128:
                                 all_input_tokens = utt + all_input_tokens
                         all_input_tokens.append(tokenizer.get_sentinel_id(0))
-                        print(tokenizer.decode(all_input_tokens))
+                        # print(tokenizer.decode(all_input_tokens))
                         prompt_tokens = tokenizer.encode(prompt)                        
                         input_len = len(all_input_tokens)
                         prompt_len = len(prompt_tokens)
@@ -622,8 +622,8 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                 if ranker is not None:
                     select_id, scores = rerank(ranker, ranker_tokenizer, device, context_utterances, generation_str_list)
                 
-                    for response, score in zip(generation_str_list, scores):
-                        print(f'response = {response}, score = {score}')
+                    # for response, score in zip(generation_str_list, scores):
+                    #     print(f'response = {response}, score = {score}')
 
                 generation_token_ids = generation_token_ids_list[select_id]
                 # e = output_ids[0].cpu().tolist()

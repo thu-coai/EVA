@@ -147,7 +147,7 @@ def get_resp(all_contexts_str, input_text, tokenizer: EncDecTokenizer):
     
     # usr repetition
     num = sum(1 if fuzz.token_sort_ratio(x, input_text) > 60 else 0 for x in usr_contexts_str[-5:])
-    if num > 2:
+    if num > 3:
         best_resp = handle_usr_repetition(input_text, num, sys_contexts_str)
     else:
         waiting_list = []
@@ -164,7 +164,7 @@ def get_resp(all_contexts_str, input_text, tokenizer: EncDecTokenizer):
     if best_resp is None:
         return None
     else:
-        print(continue_resp)
+        # print(continue_resp)
         if best_resp in continue_resp:
             return {"resp": best_resp, "continue": True}
         else:
@@ -189,7 +189,7 @@ def handle_sys_repetition(input_text, cands, sys_contexts_str):
 
 
 def handle_usr_repetition(input_text, num, sys_contexts_str):
-    if num > 3:
+    if num > 4:
         return handle_sys_repetition(input_text, repeition_resp[2], sys_contexts_str)
     if is_question(input_text):
         return handle_sys_repetition(input_text, repeition_resp[1], sys_contexts_str)
@@ -210,7 +210,7 @@ def find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str):
                 best_resp = g
                 best_score = temp_score
 
-    if best_resp == None or best_score < 0.2:
+    if best_resp == None or best_score < 0.3:
         return None
     # return find_final_resp(input_text, best_resp)
     return handle_sys_repetition(input_text, best_resp[1], sys_contexts_str)
