@@ -48,9 +48,31 @@ We provide the inference code of EVA. The source code is provided in `src/`.
 
 ### 5.1 Environment
 
-The inference code occupies only about 7000MB GPU memory. So generally a single GPU is enough. We provide 2 options to set up the environment. We recommend to use our docker directly to avoid the bugs in deepspeed.
+The inference code occupies only about 7000MB GPU memory. So generally a single GPU is enough. We provide 2 options to set up the environment.
+#### Option 1: Local setup
 
-#### Option 1: Docker
+##### Install basic dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+##### Install apex
+
+```bash
+git clone https://github.com/NVIDIA/apex
+cd apex
+pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+```
+##### Install DeepSpeed
+
+The version we used is `v0.3.9`, It can be installed from its [repo](https://github.com/microsoft/DeepSpeed/releases/tag/v0.3.9) or 
+```bash
+pip install deepspeed==0.3.9
+```
+Since there exists some **bugs** in DeepSpeed, you need to make some little modifications to this package. You can refer to https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11 for more information. Specifically, you need to modify two lines of code in `deepspeed/runtime/zero/stage1.py`. We provide the modified `stage1.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` in our repo. 
+
+#### Option 2: Docker
 
 ```[bash]
 docker pull gyxthu17/eva:1.2
@@ -61,14 +83,9 @@ Since the environment is ready in the docker, you don't need to set any environm
 ```[bash]
 docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.2 /bin/bash
 ```
-
-#### Option 2: Set up DeepSpeed
-
-If you insist to set up DeepSpeed by yourself, please make sure the version is `v0.3.9`. It can be installed from its [repo](https://github.com/microsoft/DeepSpeed/releases/tag/v0.3.9). Since there exists some bugs in DeepSpeed, you need to make some little modifications to this package. You can refer to https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11 for more information. Specifically, you need to modify two lines of code in `deepspeed/runtime/zero/stage1.py`. We provide the modified `stage1.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` in our repo. 
-
 ### 5.2 Run
 
-Before running the code, please change WORKING_DIR in the script to the path of this EVA directory, change `CKPT_PATH` to the path where the pre-trained weights are stored. You also need to change node-0 `${WORKING_DIR}/src/configs/host_files/hostfile` to the ssh node name (or IP) where you run distributed training. Please refer to DeepSpeed for more detailed information of this configuration.
+Before running the code, please change `WORKING_DIR` in the script to the path of this EVA directory, change `CKPT_PATH` to the path where the pre-trained weights are stored. 
 
 
 Run the following command:
