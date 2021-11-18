@@ -575,6 +575,7 @@ def generate_no_beam(model_batch, model, tokenizer: EncDecTokenizer, args, devic
             prev_output_tokens = torch.cat([enc_input_ids, output_ids], dim=-1)
 
             logits = postprocess_next_token_scores(
+                tokenizer=tokenizer,
                 scores=logits,
                 input_ids=prev_output_tokens,
                 no_repeat_ngram_size=args.no_repeat_ngram_size,
@@ -606,15 +607,15 @@ def generate_no_beam(model_batch, model, tokenizer: EncDecTokenizer, args, devic
         gen_len += 1
         unfinished_sents.mul_(tokens_to_add.ne(tokenizer.sep_id).long())
     
-        output_ids = output_ids.cpu().tolist()
-        generation_token_ids_list = []
-        generation_str_list = []
-        for e in output_ids:
-            generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
-            generation_token_ids_list.append(generation_token_ids)
-            generation_str_list.append(tokenizer.decode(generation_token_ids))
-        
-        return generation_str_list, generation_token_ids_list
+    output_ids = output_ids.cpu().tolist()
+    generation_token_ids_list = []
+    generation_str_list = []
+    for e in output_ids:
+        generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
+        generation_token_ids_list.append(generation_token_ids)
+        generation_str_list.append(tokenizer.decode(generation_token_ids))
+    
+    return generation_str_list, generation_token_ids_list
 
 
 def generate_beam(model_batch, model, tokenizer: EncDecTokenizer, args, device):
