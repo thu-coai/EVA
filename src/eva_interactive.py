@@ -92,29 +92,75 @@ class EncDecModelForInference(EncDecModel):
             return dec_outputs, lm_logits
 
 
-def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_size: int, cur_len: int, vocab_size: int):
-    generated_ngrams = [{tuple([23]):[33, 31], tuple([31]):[123]} for _ in range(num_hypos)]
-    def _get_generated_ngrams(hypo_idx):
-        # Before decoding the next token, prevent decoding of ngrams that have already appeared
-        start_idx = cur_len + 1 - no_repeat_ngram_size
-        ngram_idx = tuple(prev_input_ids[hypo_idx, start_idx:cur_len].tolist())
-        penalty_idx = tuple(prev_input_ids[hypo_idx, cur_len - 1: cur_len].tolist())
-        return generated_ngrams[hypo_idx].get(ngram_idx, []) + generated_ngrams[hypo_idx].get(penalty_idx, [])
+class BeamHypotheses(object):
+    def __init__(self, num_beams, max_length, length_penalty, early_stopping):
+        """
+        Initialize n-best list of hypotheses.
+        """
+        self.max_length = max_length - 1  # ignoring bos_token
+        self.length_penalty = length_penalty
+        self.early_stopping = early_stopping
+        self.num_beams = num_beams
+        self.length_fact = []
+        self.beams = []
+        self.worst_score = 1e9
 
+    def __len__(self):
+        """
+        Number of hypotheses in the list.
+        """
+        return len(self.beams)
+
+    def add(self, hyp, sum_logprobs):
+        """
+        Add a new hypothesis to the list.
+        """
+        score = sum_logprobs / len(hyp) ** self.length_penalty
+        if len(self) < self.num_beams or score > self.worst_score:
+            self.beams.append((score, hyp))
+            self.length_fact.append(len(hyp) ** self.length_penalty)
+            if len(self) > self.num_beams:
+                sorted_scores = sorted([(s, idx) for idx, (s, _) in enumerate(self.beams)])
+                del self.beams[sorted_scores[0][1]]
+                self.worst_score = sorted_scores[1][0]
+            else:
+                self.worst_score = min(score, self.worst_score)
+
+    def is_done(self, best_sum_logprobs, cur_len):
+        """
+        If there are enough hypotheses and that none of the hypotheses being generated
+        can become better than the worst one in the heap, then we are done with this sentence.
+        """
+
+        if len(self) < self.num_beams:
+            return False
+        elif self.early_stopping:
+            return True
+        else:
+            cur_score = best_sum_logprobs / cur_len ** self.length_penalty
+            ret = self.worst_score >= cur_score
+            return ret
+
+
+def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_size: int) -> None:
+    """Copied from fairseq for no_repeat_ngram in beam_search"""
+    cur_len = prev_input_ids.size(-1)
     if cur_len + 1 < no_repeat_ngram_size:
-        if cur_len > 0:
-            return [_get_generated_ngrams(hypo_idx) for hypo_idx in range(num_hypos)]
         # return no banned tokens if we haven't generated no_repeat_ngram_size tokens yet
         return [[] for _ in range(num_hypos)]
-    #generated_ngrams = [{} for _ in range(num_hypos)]
+    generated_ngrams = [{} for _ in range(num_hypos)]
     for idx in range(num_hypos):
         gen_tokens = prev_input_ids[idx].tolist()
         generated_ngram = generated_ngrams[idx]
         for ngram in zip(*[gen_tokens[i:] for i in range(no_repeat_ngram_size)]):
-            if any(e >= vocab_size for e in ngram):
-                continue
             prev_ngram_tuple = tuple(ngram[:-1])
             generated_ngram[prev_ngram_tuple] = generated_ngram.get(prev_ngram_tuple, []) + [ngram[-1]]
+
+    def _get_generated_ngrams(hypo_idx):
+        # Before decoding the next token, prevent decoding of ngrams that have already appeared
+        start_idx = cur_len + 1 - no_repeat_ngram_size
+        ngram_idx = tuple(prev_input_ids[hypo_idx, start_idx:cur_len].tolist())
+        return generated_ngrams[hypo_idx].get(ngram_idx, [])
 
     banned_tokens = [_get_generated_ngrams(hypo_idx) for hypo_idx in range(num_hypos)]
     return banned_tokens
@@ -300,12 +346,9 @@ def get_inference_batch(
     return model_batch
 
 
-def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-10000, remove_unk=False):
+def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-10000):
     # This function has been mostly taken from huggingface conversational ai code at
     # https://medium.com/huggingface/how-to-build-a-state-of-the-art-conversational-ai-with-transfer-learning-2d818ac26313
-
-    if remove_unk:
-        logits[..., 0] = filter_value
 
     if top_k > 0:
         # Remove all tokens with a probability less than the last token of the top-k
@@ -331,7 +374,7 @@ def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-10000, remove_unk=Fal
 
     return logits
 
-from human_rules import check_resp, get_resp, post_process, init_list
+# from human_rules import check_resp, get_resp, post_process, init_list
 
 
 def rerank(model, tokenizer, device, context, responses):
@@ -386,30 +429,412 @@ def check_relative(model, tokenizer, device, context_utterance):
     return sorted(relative_utt), reversed(is_relative)
 
 
+def calc_banned_bad_words_ids(prev_input_ids, bad_words_ids):
+    banned_tokens = []
+
+    def _tokens_match(prev_tokens, tokens):
+        if len(tokens) == 0:
+            # if bad word tokens is just one token always ban it
+            return True
+        if len(tokens) > len(prev_input_ids):
+            # if bad word tokens are longer then prev input_ids they can't be equal
+            return False
+
+        if prev_tokens[-len(tokens) :] == tokens:
+            # if tokens match
+            return True
+        else:
+            return False
+
+    for prev_input_ids_slice in prev_input_ids:
+        banned_tokens_slice = []
+
+        for banned_token_seq in bad_words_ids:
+            assert len(banned_token_seq) > 0, "Banned words token sequences {} cannot have an empty list".format(
+                bad_words_ids
+            )
+
+            if _tokens_match(prev_input_ids_slice.tolist(), banned_token_seq[:-1]) is False:
+                # if tokens do not match continue
+                continue
+
+            banned_tokens_slice.append(banned_token_seq[-1])
+
+        banned_tokens.append(banned_tokens_slice)
+
+    return banned_tokens
+
+
+def enforce_repetition_penalty_(lprobs, batch_size, num_beams, prev_output_tokens, repetition_penalty):
+    """repetition penalty (from CTRL paper https://arxiv.org/abs/1909.05858). """
+    for i in range(batch_size * num_beams):
+        for previous_token in set(prev_output_tokens[i].tolist()):
+            # if score < 0 then repetition penalty has to multiplied to reduce the previous token probability
+            if lprobs[i, previous_token] < 0:
+                lprobs[i, previous_token] *= repetition_penalty
+            else:
+                lprobs[i, previous_token] /= repetition_penalty
+
+
+def postprocess_next_token_scores(
+    tokenizer: EncDecTokenizer,
+    scores,
+    input_ids,
+    no_repeat_ngram_size,
+    bad_words_ids,
+    cur_len,
+    min_length,
+    max_length,
+    eos_token_id,
+    repetition_penalty,
+    batch_size,
+    num_beams,
+):
+    # repetition penalty (from CTRL paper https://arxiv.org/abs/1909.05858)
+    if repetition_penalty != 1.0:
+        enforce_repetition_penalty_(
+            scores, batch_size, num_beams, input_ids, repetition_penalty,
+        )
+
+    # set eos token prob to zero if min_length is not reached
+    if eos_token_id is not None and cur_len < min_length:
+        scores[:, eos_token_id] = -10000
+
+    if no_repeat_ngram_size > 0:
+        # calculate a list of banned tokens to prevent repetitively generating the same ngrams
+        num_batch_hypotheses = batch_size * num_beams
+        # from fairseq: https://github.com/pytorch/fairseq/blob/a07cb6f40480928c9e0548b737aadd36ee66ac76/fairseq/sequence_generator.py#L345
+        banned_batch_tokens = calc_banned_ngram_tokens(input_ids, num_batch_hypotheses, no_repeat_ngram_size)
+        for i, banned_tokens in enumerate(banned_batch_tokens):
+            scores[i, banned_tokens] = -10000
+
+    if bad_words_ids is not None:
+        # calculate a list of banned tokens according to bad words
+        banned_tokens = calc_banned_bad_words_ids(input_ids, bad_words_ids)
+
+        for i, banned_tokens in enumerate(banned_tokens):
+            scores[i, banned_tokens] = -10000
+
+    scores[:, 0] = -50000
+
+    return scores
+
+
+def generate_no_beam(model_batch, model, tokenizer: EncDecTokenizer, args, device):
+    batch_size = args.batch_size
+    target_length = args.max_length
+    
+    dec_init_length = 1 # +1 for s_0
+    
+    enc_input_ids = model_batch['enc_input_ids']
+    enc_attention_mask = model_batch['enc_attention_mask']
+    enc_outputs = model(
+        enc_input_ids=enc_input_ids,
+        enc_attention_mask=enc_attention_mask,
+    )
+    enc_hidden_states = enc_outputs["last_hidden_state"]
+    
+    # for generating responses
+    # we only use the <go> token, so truncate other tokens
+    dec_input_ids = model_batch['dec_input_ids'][..., :dec_init_length]
+    dec_attention_mask = model_batch['dec_attention_mask'][..., :dec_init_length, :dec_init_length]
+    # we use past_key_values, so only the current token mask is needed
+    cross_attention_mask = model_batch['cross_attention_mask'][..., :dec_init_length, :]
+    
+    unfinished_sents = enc_input_ids.new(enc_input_ids.size(0)).fill_(1)
+    output_ids = enc_input_ids.new_zeros([enc_input_ids.size(0), 0]) # not include the prompt
+    output_probs = torch.zeros(batch_size, 1).to(device)
+    prob_idx = torch.arange(batch_size)
+    past_key_values = None
+    
+    gen_len = 0
+    # start_time = time.time()
+    while gen_len < target_length:
+        #print_rank_0(f'>>>>>> gen_len: {gen_len} <<<<<<')
+        
+        if unfinished_sents.max() == 0:
+            tokens_to_add = tokenizer.sep_id * (1 - unfinished_sents)
+            output_ids = torch.cat([output_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
+        
+        else:
+            dec_outputs, lm_logits = model(
+                dec_input_ids=dec_input_ids,
+                dec_attention_mask=dec_attention_mask,
+                cross_attention_mask=cross_attention_mask,
+                enc_hidden_states=enc_hidden_states,
+                past_key_values=past_key_values,
+            )
+            past_key_values = dec_outputs['past_key_values']
+            
+            gathered_lm_logits = [torch.zeros_like(lm_logits).to(device) for _ in range(mpu.get_model_parallel_world_size())]
+            torch.distributed.all_gather(gathered_lm_logits, lm_logits.data, mpu.get_model_parallel_group())
+            lm_logits = torch.cat(gathered_lm_logits, dim=-1)
+
+            logits = lm_logits[:, -1, :] / args.temperature
+
+            prev_output_tokens = torch.cat([enc_input_ids, output_ids], dim=-1)
+
+            logits = postprocess_next_token_scores(
+                scores=logits,
+                input_ids=prev_output_tokens,
+                no_repeat_ngram_size=args.no_repeat_ngram_size,
+                bad_words_ids=[[0]],
+                cur_len=gen_len,
+                min_length=args.min_length,
+                max_length=args.max_length,
+                eos_token_id=tokenizer.sep_id,
+                repetition_penalty=args.repetition_penalty,
+                batch_size=batch_size,
+                num_beams=1,
+            )
+
+            logits = top_k_logits(logits, top_k=args.top_k, top_p=args.top_p)
+            probs = F.softmax(logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1).squeeze(1)
+
+            next_prob = probs[prob_idx, next_token]
+            tokens_to_add = next_token * unfinished_sents + tokenizer.sep_id * (1 - unfinished_sents)
+            probs_to_add = next_prob * unfinished_sents
+            output_probs = torch.cat([output_probs, probs_to_add.unsqueeze(-1)], dim=-1)
+            
+            dec_input_ids = tokens_to_add.unsqueeze(-1)
+            output_ids = torch.cat([output_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
+            # let the current token attend to all previous tokens
+            dec_attention_mask = torch.cat([dec_attention_mask[:, :, -1:, :], dec_attention_mask[:, :, -1:, -1:]], dim=-1)
+            cross_attention_mask = cross_attention_mask[:, :, -1:, :]
+
+        gen_len += 1
+        unfinished_sents.mul_(tokens_to_add.ne(tokenizer.sep_id).long())
+    
+        output_ids = output_ids.cpu().tolist()
+        generation_token_ids_list = []
+        generation_str_list = []
+        for e in output_ids:
+            generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
+            generation_token_ids_list.append(generation_token_ids)
+            generation_str_list.append(tokenizer.decode(generation_token_ids))
+        
+        return generation_str_list, generation_token_ids_list
+
+
+def generate_beam(model_batch, model, tokenizer: EncDecTokenizer, args, device):
+    batch_size = args.batch_size
+    num_beams = args.num_beams
+    target_length = args.max_length
+    
+    do_sample = args.top_p > 0 or args.top_k > 0
+    vocab_size = tokenizer.vocab_size
+    
+    enc_input_ids = model_batch['enc_input_ids']
+    enc_attention_mask = model_batch['enc_attention_mask']
+    
+    enc_input_length = enc_input_ids.size(-1)
+    enc_input_ids = enc_input_ids.unsqueeze(1).expand(batch_size, num_beams, enc_input_length)
+    enc_attention_mask = enc_attention_mask.unsqueeze(1).expand(batch_size, num_beams, 1, enc_input_length, enc_input_length)
+    
+    enc_input_ids = enc_input_ids.contiguous().view(batch_size * num_beams, enc_input_length)
+    enc_attention_mask = enc_attention_mask.contiguous().view(batch_size * num_beams, 1, enc_input_length, enc_input_length)
+    
+    enc_outputs = model(
+        enc_input_ids=enc_input_ids,
+        enc_attention_mask=enc_attention_mask,
+    )
+    enc_hidden_states = enc_outputs["last_hidden_state"]
+
+    dec_init_length = 1 # +1 for s_0
+    # for generating responses
+    # we only use the <go> token, so truncate other tokens
+    dec_input_ids = model_batch['dec_input_ids'][..., :dec_init_length]
+    dec_attention_mask = model_batch['dec_attention_mask'][..., :dec_init_length, :dec_init_length]
+    # we use past_key_values, so only the current token mask is needed
+    cross_attention_mask = model_batch['cross_attention_mask'][..., :dec_init_length, :]
+    
+    dec_input_ids = dec_input_ids.unsqueeze(1).expand(batch_size, num_beams, dec_init_length)
+    dec_attention_mask = dec_attention_mask.unsqueeze(1).expand(batch_size, num_beams, 1, dec_init_length, dec_init_length)
+    cross_attention_mask = cross_attention_mask.unsqueeze(1).expand(batch_size, num_beams, 1, dec_init_length, enc_input_length)
+    
+    dec_input_ids = dec_input_ids.contiguous().view(batch_size * num_beams, dec_init_length)
+    dec_attention_mask = dec_attention_mask.contiguous().view(batch_size * num_beams, 1, dec_init_length, dec_init_length)
+    cross_attention_mask = cross_attention_mask.contiguous().view(batch_size * num_beams, 1, dec_init_length, enc_input_length)
+    
+    done = [False for _ in range(batch_size)]
+    output_ids = enc_input_ids.new_zeros([enc_input_ids.size(0), 0]) # not include the prompt
+    past_key_values = None
+    
+    gen_len = 0
+
+    # generated hypotheses
+    generated_hyps = [
+        BeamHypotheses(num_beams, target_length, args.length_penalty, early_stopping=args.early_stopping)
+        for _ in range(batch_size)
+    ]
+
+    beam_scores = torch.zeros((batch_size, num_beams), dtype=torch.float, device=dec_input_ids.device)
+    beam_scores = beam_scores.view(-1)  # shape (batch_size * num_beams,)
+
+    while gen_len < target_length:
+        dec_outputs, lm_logits = model(
+            dec_input_ids=dec_input_ids,
+            dec_attention_mask=dec_attention_mask,
+            cross_attention_mask=cross_attention_mask,
+            enc_hidden_states=enc_hidden_states,
+            past_key_values=past_key_values,
+        )
+        past_key_values = dec_outputs['past_key_values']
+
+        logits = lm_logits[:, -1, :] / args.temperature
+        scores = F.log_softmax(logits, dim=-1)
+
+        prev_output_tokens = torch.cat([enc_input_ids, output_ids], dim=-1)
+
+        scores = postprocess_next_token_scores(
+            tokenizer=tokenizer,
+            scores=scores,
+            input_ids=prev_output_tokens,
+            no_repeat_ngram_size=args.no_repeat_ngram_size,
+            bad_words_ids=None,
+            cur_len=gen_len,
+            min_length=args.min_length,
+            max_length=args.max_length,
+            eos_token_id=tokenizer.sep_id,
+            repetition_penalty=args.repetition_penalty,
+            batch_size=batch_size,
+            num_beams=num_beams,
+        )
+        if do_sample:
+            _scores = scores + beam_scores[:, None].expand_as(scores)
+            if args.temperature != 1.0:
+                _scores = _scores / args.temperature                
+            _scores = top_k_logits(_scores, top_k=args.top_k, top_p=args.top_p)
+            _scores = _scores.contiguous().view(batch_size, num_beams * vocab_size)
+            # Sample 2 next tokens for each beam (so we have some spare tokens and match output of greedy beam search)
+            probs = F.softmax(_scores, dim=-1)
+            next_tokens = torch.multinomial(probs, num_samples=2 * num_beams)  # (batch_size, num_beams * 2)
+            # Compute next scores
+            next_scores = torch.gather(_scores, -1, next_tokens)  # (batch_size, num_beams * 2)
+            # sort the sampled vector to make sure that the first num_beams samples are the best
+            next_scores, next_scores_indices = torch.sort(next_scores, descending=True, dim=1)
+            next_tokens = torch.gather(next_tokens, -1, next_scores_indices)  # (batch_size, num_beams * 2)            
+        else:
+            next_scores = scores + beam_scores[:, None].expand_as(scores)  # (batch_size * num_beams, vocab_size)
+
+            # re-organize to group the beam together (we are keeping top hypothesis accross beams)
+            next_scores = next_scores.view(
+                batch_size, num_beams * vocab_size
+            )  # (batch_size, num_beams * vocab_size)
+
+            next_scores, next_tokens = torch.topk(next_scores, 2 * num_beams, dim=1, largest=True, sorted=True)
+
+        assert next_scores.size() == next_tokens.size() == (batch_size, 2 * num_beams)
+        # next batch beam content
+        next_batch_beam = []
+
+        for batch_idx in range(batch_size):
+            # if we are done with this sentence, add a pad token
+            if done[batch_idx]:
+                assert (
+                    len(generated_hyps[batch_idx]) >= num_beams
+                ), "Batch can only be done if at least {} beams have been generated".format(num_beams)
+                next_batch_beam.extend([(0, tokenizer.pad_id, 0)] * num_beams)  # pad the batch
+                continue
+
+            # next sentence beam content, this will get added to next_batch_beam
+            next_sent_beam = []
+
+            # next tokens for this sentence
+            for beam_token_rank, (beam_token_id, beam_token_score) in enumerate(
+                zip(next_tokens[batch_idx], next_scores[batch_idx])
+            ):
+                # get beam and token IDs
+                beam_id = beam_token_id // vocab_size
+                token_id = beam_token_id % vocab_size
+
+                effective_beam_id = batch_idx * num_beams + beam_id
+                # add to generated hypotheses if end of sentence
+                if token_id.item() == tokenizer.sep_id:
+                    # if beam_token does not belong to top num_beams tokens, it should not be added
+                    is_beam_token_worse_than_top_num_beams = beam_token_rank >= num_beams
+                    if is_beam_token_worse_than_top_num_beams:
+                        continue
+                    generated_hyps[batch_idx].add(
+                        output_ids[effective_beam_id].clone(), beam_token_score.item(),
+                    )
+                else:
+                    # add next predicted token since it is not eos_token
+                    next_sent_beam.append((beam_token_score, token_id, effective_beam_id))
+
+                # once the beam for next step is full, don't add more tokens to it.
+                if len(next_sent_beam) == num_beams:
+                    break
+
+            # Check if we are done so that we can save a pad step if all(done)
+            # is_done: the best candiates in the current beam is worse than the sentences already in generated_hyps
+            done[batch_idx] = done[batch_idx] or generated_hyps[batch_idx].is_done(
+                next_scores[batch_idx].max().item(), gen_len
+            )
+
+            # update next beam content
+            assert len(next_sent_beam) == num_beams, "Beam should always be full"
+            next_batch_beam.extend(next_sent_beam)
+            assert len(next_batch_beam) == num_beams * (batch_idx + 1), "We should have added num_beams each step"
+
+        # stop when we are done with each sentence
+        if all(done):
+            break
+
+        # sanity check / prepare next batch
+        assert len(next_batch_beam) == batch_size * num_beams
+        beam_scores = torch.tensor([x[0] for x in next_batch_beam], device=dec_input_ids.device)
+        beam_tokens = torch.tensor([x[1] for x in next_batch_beam], device=dec_input_ids.device)
+        beam_idx = torch.tensor([x[2] for x in next_batch_beam], device=dec_input_ids.device)
+
+        # re-order batch and update current length
+        output_ids = output_ids[beam_idx, :]
+        output_ids = torch.cat([output_ids, beam_tokens.unsqueeze(1)], dim=-1)
+
+        dec_input_ids = beam_tokens.unsqueeze(1)
+        dec_attention_mask = torch.cat([dec_attention_mask[:, :, -1:, :], dec_attention_mask[:, :, -1:, -1:]], dim=-1)
+        cross_attention_mask = cross_attention_mask[:, :, -1:, :]
+
+        past_key_values = [[torch.index_select(layer_past_type, 0, beam_idx) for layer_past_type in layer_past] for layer_past in past_key_values]
+        
+        gen_len += 1
+
+    # finalize all open beam hypotheses and add to generated hypotheses
+    for batch_idx in range(batch_size):
+        if done[batch_idx]:
+            continue
+
+        # need to add best num_beams hypotheses to generated hyps
+        for beam_id in range(num_beams):
+            effective_beam_id = batch_idx * num_beams + beam_id
+            final_score = beam_scores[effective_beam_id].item()
+            final_tokens = output_ids[effective_beam_id]
+            generated_hyps[batch_idx].add(final_tokens, final_score)
+
+    best = []
+    best_ids = []
+
+    # retrieve best hypotheses
+    for i, hypotheses in enumerate(generated_hyps):
+        sorted_hyps = sorted(hypotheses.beams, key=lambda x: x[0])
+        best_hyp = sorted_hyps.pop()[1]
+        best.append(tokenizer.decode(best_hyp.cpu().tolist()))
+        best_ids.append(best_hyp.cpu().tolist())
+
+    return best, best_ids
+
+
 def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=None, ranker_tokenizer=None):
-    init_list()
-    no_repeat_ngram_size = 3
-    repetition_penalty = 1.2
-    batch_size = 1
-    _min_sent_length = 15
-    # _max_regenerate_times = 5 # 最大重复生成次数
-    _sample_num = args.rerank_num
-    _sep_p = 0.9
-    again = False
+    # init_list()
     model.eval()
     if ranker is not None:
         ranker.eval()
-
-    assert batch_size == 1
-    batch_size *= _sample_num
 
     with torch.no_grad():
         all_input_tokens_list = []
         context_utterances = []
         while True:
-            min_sent_length = _min_sent_length # 最小句子长度
-            sep_p = _sep_p # 结束概率
-            # max_regenerate_times = _max_regenerate_times
             if dist.get_rank() == 0:
                 input_text = input("Usr >>> ")
                 if input_text == "clear":
@@ -417,24 +842,12 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                     all_input_tokens_list = []
                     context_utterances = []
                     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
-                elif input_text == "set min_length":
-                    min_length_input = input("please enter the min_length: ")
-                    _min_sent_length = float(min_length_input)
-                    print("min_length set to", _min_sent_length)
-                    all_input_tokens_list = []
-                    length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
-                elif input_text == "set sep_p":
-                    sep_p_input = input("please enter the sep_p: ")
-                    _sep_p = float(sep_p_input)
-                    print("sep_p set to", _sep_p)
-                    all_input_tokens_list = []
-                    length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
                 else:
                     context_utterances.append(input_text)
                     all_input_tokens_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id])
                     resp = None
-                    if args.human_rules:
-                        resp = get_resp(context_utterances, input_text, tokenizer)
+                    # if args.human_rules:
+                    #     resp = get_resp(context_utterances, input_text, tokenizer)
                     if resp is not None and not resp["continue"]:
                         # print("resp in repo", resp)
                         resp = resp["resp"]
@@ -447,7 +860,10 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                         prompt = ""
                         if resp is not None:
                             prompt = resp["resp"]
-                        trunc_index, is_relative = check_relative(ranker, ranker_tokenizer, device, context_utterances)
+                        if ranker is not None and ranker_tokenizer is not None:
+                            trunc_index, is_relative = check_relative(ranker, ranker_tokenizer, device, context_utterances)
+                        else:
+                            trunc_index = None
                         # print("trunc_index", trunc_index, "is_relative", is_relative)
                         trunc_list = all_input_tokens_list
                         if trunc_index is not None:
@@ -488,152 +904,21 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
             if length_tensor[1] > 0:
                 dist.broadcast(decoder_token_tensor, 0)
 
-            token_tensor = token_tensor.unsqueeze(0).repeat(batch_size, 1) # repeat
-            decoder_token_tensor = decoder_token_tensor.unsqueeze(0).repeat(batch_size, 1)
+            token_tensor = token_tensor.unsqueeze(0).repeat(args.batch_size, 1) # repeat
+            decoder_token_tensor = decoder_token_tensor.unsqueeze(0).repeat(args.batch_size, 1)
             target_length = args.max_length
-            model_batch = get_inference_batch(token_tensor, decoder_token_tensor, device, batch_size, target_length, tokenizer, args)
-            dec_init_length = int(length_tensor[1]) + 1 # +1 for s_0
-
-            min_sent_length = _min_sent_length # 最小句子长度
-            sep_p = _sep_p # 结束概率
+            model_batch = get_inference_batch(token_tensor, decoder_token_tensor, device, args.batch_size, target_length, tokenizer, args)
             
-            enc_input_ids = model_batch['enc_input_ids']
-            enc_attention_mask = model_batch['enc_attention_mask']
-            enc_outputs = model(
-                enc_input_ids=enc_input_ids,
-                enc_attention_mask=enc_attention_mask,
-            )
-            enc_hidden_states = enc_outputs["last_hidden_state"]
-            
-            # for generating responses
-            # we only use the <go> token, so truncate other tokens
-            dec_input_ids = model_batch['dec_input_ids'][..., :dec_init_length]
-            dec_attention_mask = model_batch['dec_attention_mask'][..., :dec_init_length, :dec_init_length]
-            # we use past_key_values, so only the current token mask is needed
-            cross_attention_mask = model_batch['cross_attention_mask'][..., :dec_init_length, :]
-            
-            unfinished_sents = enc_input_ids.new(enc_input_ids.size(0)).fill_(1)
-            output_ids = enc_input_ids.new_zeros([enc_input_ids.size(0), 0]) # not include the prompt
-            output_probs = torch.zeros(batch_size, 1).to(device)
-            prob_idx = torch.arange(batch_size)
-            past_key_values = None
-            
-            gen_len = 0
-            # start_time = time.time()
-            while gen_len < target_length:
-                #print_rank_0(f'>>>>>> gen_len: {gen_len} <<<<<<')
-                
-                if unfinished_sents.max() == 0:
-                    tokens_to_add = tokenizer.sep_id * (1 - unfinished_sents)
-                    output_ids = torch.cat([output_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
-                
-                else:
-                    dec_outputs, lm_logits = model(
-                        dec_input_ids=dec_input_ids,
-                        dec_attention_mask=dec_attention_mask,
-                        cross_attention_mask=cross_attention_mask,
-                        enc_hidden_states=enc_hidden_states,
-                        past_key_values=past_key_values,
-                    )
-                    past_key_values = dec_outputs['past_key_values']
-                    
-                    gathered_lm_logits = [torch.zeros_like(lm_logits).to(device) for _ in range(mpu.get_model_parallel_world_size())]
-                    torch.distributed.all_gather(gathered_lm_logits, lm_logits.data, mpu.get_model_parallel_group())
-                    lm_logits = torch.cat(gathered_lm_logits, dim=-1)
+            if args.num_beams == 1:
+                generation_str_list, generation_id_list = generate_no_beam(model_batch, model, tokenizer, args, device)
+            else:
+                generation_str_list, generation_id_list  = generate_beam(model_batch, model, tokenizer, args, device)
 
-                    logits = lm_logits[:, -1, :] / args.temperature
-
-                    prev_output_tokens = torch.cat([enc_input_ids, output_ids], dim=-1)
-
-                    # repetition_penalty
-                    if repetition_penalty != 1.0:
-                        for i in range(logits.size(0)):
-                            for previous_token in set(prev_output_tokens[i].tolist()):
-                                # if score < 0 then repetition penalty has to multiplied to reduce the previous token probability
-                                if logits[i, previous_token] < 0:
-                                    logits[i, previous_token] *= repetition_penalty
-                                else:
-                                    logits[i, previous_token] /= repetition_penalty
-
-                    # no_repeat_ngram_size
-                    if no_repeat_ngram_size > 0:
-                        banned_batch_tokens = calc_banned_ngram_tokens(
-                            output_ids, logits.size(0), no_repeat_ngram_size, gen_len, logits.size(1)
-                        )
-                        for i, banned_tokens in enumerate(banned_batch_tokens):
-                            logits[i, banned_tokens] = -1e5
-
-                    logits = top_k_logits(logits, top_k=args.top_k, top_p=args.top_p, remove_unk=True)
-                    probs = F.softmax(logits, dim=-1)
-                    next_token = torch.multinomial(probs, num_samples=1).squeeze(1)
-
-                    # 设置最小句子长度
-                    if(min_sent_length > 0):
-                        for i in range(args.batch_size):
-                            # if(next_token[i] == 4): 
-                            if(next_token[i] == 4 and probs[i][4] < sep_p): 
-                                logits[i][4] = -100000000
-                                logits[i][0] = -100000000
-                                logits = top_k_logits(logits, top_k=args.top_k, top_p=args.top_p)
-                                probs = F.softmax(logits, dim=-1)
-                                next_token[i] = torch.multinomial(probs[i], num_samples=1)
-                                # print_rank_0(next_token[i])
-
-                    next_prob = probs[prob_idx, next_token]
-                    tokens_to_add = next_token * unfinished_sents + tokenizer.sep_id * (1 - unfinished_sents)
-                    probs_to_add = next_prob * unfinished_sents
-                    output_probs = torch.cat([output_probs, probs_to_add.unsqueeze(-1)], dim=-1)
-                    
-                    dec_input_ids = tokens_to_add.unsqueeze(-1)
-                    output_ids = torch.cat([output_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
-                    # let the current token attend to all previous tokens
-                    dec_attention_mask = torch.cat([dec_attention_mask[:, :, -1:, :], dec_attention_mask[:, :, -1:, -1:]], dim=-1)
-                    cross_attention_mask = cross_attention_mask[:, :, -1:, :]
-
-                gen_len += 1
-                min_sent_length -= 1
-                unfinished_sents.mul_(tokens_to_add.ne(tokenizer.sep_id).long())
-            
-            output_ids = torch.cat([decoder_token_tensor, output_ids], dim=-1)
-            # if check_resp(generation_token_ids, tokenizer) and max_regenerate_times > 0:
-            #     set_random_seed(random.randint(0, 1000))
-            #     continue
-            # else:
-            #     break
+            all_input_tokens_list.append(generation_id_list[0] + [tokenizer.sep_id])
+            context_utterances.append(generation_str_list[0])
 
             if dist.get_rank() == 0:
-                output_ids = output_ids.cpu().tolist()
-                generation_token_ids_list = []
-                generation_str_list = []
-                for e in output_ids:
-                    generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
-                    generation_token_ids = post_process(all_input_tokens, input_text, generation_token_ids, tokenizer)
-                    if not check_resp(generation_token_ids, tokenizer): # pass test
-                        generation_token_ids_list.append(generation_token_ids)
-                        generation_str_list.append(tokenizer.decode(generation_token_ids))
-                if len(generation_str_list) == 0:
-                    for e in output_ids:
-                        generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
-                        generation_token_ids = post_process(all_input_tokens, input_text, generation_token_ids, tokenizer)
-                        generation_token_ids_list.append(generation_token_ids)
-                        generation_str_list.append(tokenizer.decode(generation_token_ids))  
-                
-                select_id = 0
-                if ranker is not None:
-                    select_id, scores = rerank(ranker, ranker_tokenizer, device, context_utterances, generation_str_list)
-                
-                    # for response, score in zip(generation_str_list, scores):
-                    #     print(f'response = {response}, score = {score}')
-
-                generation_token_ids = generation_token_ids_list[select_id]
-                # e = output_ids[0].cpu().tolist()
-                # generation_token_ids = e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e
-                # generation_token_ids = post_process(all_input_tokens, input_text, generation_token_ids, tokenizer)
-                all_input_tokens_list.append(generation_token_ids + [tokenizer.sep_id])
-                context_utterances.append(generation_str_list[select_id])
-                
-                print("Sys >>> {}".format(tokenizer.decode(generation_token_ids)))
-                # print(tokenizer.decode(all_input_tokens))
+                print("Sys >>> {}".format(generation_str_list[0]))
 
 
 def initialize_distributed(args):

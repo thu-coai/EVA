@@ -26,39 +26,15 @@ def add_model_config_args(parser: argparse.ArgumentParser):
 
     group = parser.add_argument_group('model', 'model configuration')
 
-    group.add_argument('--pretrained-bert', action='store_true',
-                       help='use a pretrained bert-large-uncased model instead'
-                       'of initializing from scratch. See '
-                       '--tokenizer-model-type to specify which pretrained '
-                       'BERT model to use')
     group.add_argument('--model-config', type=str)
+    group.add_argument('--model-parallel-size', type=int, default=1)
     group.add_argument("--ranker-config", type=str)
     group.add_argument('--attention-dropout', type=float, default=0.1,
                        help='dropout probability for attention weights')
-    group.add_argument('--num-attention-heads', type=int, default=16,
-                       help='num of transformer attention heads')
-    group.add_argument('--hidden-size', type=int, default=1024,
-                       help='tansformer hidden size')
-    group.add_argument('--intermediate-size', type=int, default=None,
-                       help='transformer embedding dimension for FFN'
-                       'set to 4*`--hidden-size` if it is None')
-    group.add_argument('--num-layers', type=int, default=24,
-                       help='num decoder layers')
-    group.add_argument('--layernorm-epsilon', type=float, default=1e-5,
-                       help='layer norm epsilon')
-    group.add_argument('--hidden-dropout', type=float, default=0.1,
-                       help='dropout probability for hidden state transformer')
-    group.add_argument('--max-position-embeddings', type=int, default=512,
-                       help='maximum number of position embeddings to use')
     group.add_argument('--vocab-size', type=int, default=30522,
                        help='vocab size to use for non-character-level '
                        'tokenization. This value will only be used when '
                        'creating a tokenizer')
-    group.add_argument('--deep-init', action='store_true',
-                       help='initialize bert model similar to gpt2 model.'
-                       'scales initialization of projection layers by a '
-                       'factor of 1/sqrt(2N). Necessary to train bert '
-                       'models larger than BERT-Large.')
     group.add_argument('--make-vocab-size-divisible-by', type=int, default=128,
                        help='Pad the vocab size to be divisible by this value.'
                        'This is added for computational efficieny reasons.')
@@ -77,24 +53,6 @@ def add_fp16_config_args(parser: argparse.ArgumentParser):
 
     group.add_argument('--fp16', action='store_true',
                        help='Run model in fp16 mode')
-    group.add_argument('--fp32-embedding', action='store_true',
-                       help='embedding in fp32')
-    group.add_argument('--fp32-layernorm', action='store_true',
-                       help='layer norm in fp32')
-    group.add_argument('--fp32-tokentypes', action='store_true',
-                       help='embedding token types in fp32')
-    group.add_argument('--fp32-allreduce', action='store_true',
-                       help='all-reduce in fp32')
-    group.add_argument('--hysteresis', type=int, default=2,
-                       help='hysteresis for dynamic loss scaling')
-    group.add_argument('--loss-scale', type=float, default=None,
-                       help='Static loss scaling, positive power of 2 '
-                       'values can improve fp16 convergence. If None, dynamic'
-                       'loss scaling is used.')
-    group.add_argument('--loss-scale-window', type=float, default=1000,
-                       help='Window over which to raise/lower dynamic scale')
-    group.add_argument('--min-scale', type=float, default=1,
-                       help='Minimum loss scale for dynamic loss scale')
 
     return parser
 
@@ -117,12 +75,6 @@ def add_training_args(parser: argparse.ArgumentParser):
                        help='uses activation checkpointing from deepspeed')
     group.add_argument('--clip-grad', type=float, default=1.0,
                        help='gradient clipping')
-    group.add_argument('--train-iters', type=int, default=1000000,
-                       help='total number of iterations to train over all training runs')
-    group.add_argument('--log-interval', type=int, default=100,
-                       help='report interval')
-    group.add_argument('--exit-interval', type=int, default=None,
-                       help='Exit the program after this many new iterations.')
 
     group.add_argument('--seed', type=int, default=1234,
                        help='random seed')
@@ -146,14 +98,6 @@ def add_training_args(parser: argparse.ArgumentParser):
                        help='percentage of data to warmup on (.01 = 1% of all '
                        'training iters). Default 0.01')
     # model checkpointing
-    group.add_argument('--save', type=str, default=None,
-                       help='Output directory to save checkpoints to.')
-    group.add_argument('--save-interval', type=int, default=5000,
-                       help='number of iterations between saves')
-    group.add_argument('--no-save-optim', action='store_true',
-                       help='Do not save current optimizer.')
-    group.add_argument('--no-save-rng', action='store_true',
-                       help='Do not save current rng state.')
     group.add_argument('--load', type=str, default=None,
                        help='Path to a directory containing a model checkpoint.')
     group.add_argument("--ranker-load", type=str, default=None,
@@ -162,15 +106,6 @@ def add_training_args(parser: argparse.ArgumentParser):
                        help='Do not load optimizer when loading checkpoint.')
     group.add_argument('--no-load-rng', action='store_true',
                        help='Do not load rng state when loading checkpoint.')
-    group.add_argument('--finetune', action='store_true',
-                       help='Load model for finetuning. Do not load optimizer '
-                       'or rng state from checkpoint and set iteration to 0. '
-                       'Assumed when loading a release checkpoint.')
-    group.add_argument('--resume-dataloader', action='store_true',
-                       help='Resume the dataloader when resuming training. '
-                       'Does not apply to tfrecords dataloader, try resuming'
-                       'with a different seed in this case.')
-    group.add_argument('--log-file')
     # distributed training args
     group.add_argument('--distributed-backend', default='nccl',
                        help='which backend to use for distributed '
@@ -188,38 +123,11 @@ def add_evaluation_args(parser: argparse.ArgumentParser):
     group = parser.add_argument_group('validation', 'validation configurations')
 
     group.add_argument('--rerank', action="store_true")
-    group.add_argument('--rerank_num', type=int, default=1)
-    group.add_argument("--human_rules", action="store_true")
+    group.add_argument('--rerank-num', type=int, default=1)
+    group.add_argument("--human-rules", action="store_true")
     group.add_argument('--eval-batch-size', type=int, default=None,
                        help='Data Loader batch size for evaluation datasets.'
                        'Defaults to `--batch-size`')
-    group.add_argument('--eval-iters', type=int, default=100,
-                       help='number of iterations to run for evaluation'
-                       'validation/test for')
-    group.add_argument('--eval-interval', type=int, default=1000,
-                       help='interval between running evaluation on validation set')
-    group.add_argument('--eval-enc-seq-length', type=int, default=None,
-                       help='Maximum sequence length to process for '
-                       'evaluation. Defaults to `--enc-seq-length`')
-    group.add_argument('--eval-dec-seq-length', type=int, default=None,
-                       help='Maximum sequence length to process for '
-                       'evaluation. Defaults to `--dec-seq-length`')
-    group.add_argument('--eval-max-preds-per-seq', type=int, default=None,
-                       help='Maximum number of predictions to use for '
-                       'evaluation. Defaults to '
-                       'math.ceil(`--eval-seq-length`*.15/10)*10')
-    group.add_argument('--overlapping-eval', type=int, default=32,
-                       help='sliding window for overlapping eval ')
-    group.add_argument('--cloze-eval', action='store_true',
-                       help='Evaluation dataset from `--valid-data` is a cloze task')
-    group.add_argument('--eval-hf', action='store_true',
-                       help='perform evaluation with huggingface openai model.'
-                       'use `--load` to specify weights path to be loaded')
-    group.add_argument('--load-openai', action='store_true',
-                       help='load openai weights into our model. Use `--load` '
-                       'to specify weights path to be loaded')
-    group.add_argument('--eval_ratio', type=float, default=1.0)
-    group.add_argument('--max_length', type=int, default=100)
 
     return parser
 
@@ -228,10 +136,18 @@ def add_text_generate_args(parser: argparse.ArgumentParser):
     """Text generate arguments."""
 
     group = parser.add_argument_group('Text generation', 'configurations')
-    group.add_argument("--temperature", type=float, default=1.0)
-    group.add_argument("--top_p", type=float, default=0.0)
+    group.add_argument("--temperature", type=float, default=0.9)
+    group.add_argument("--top_p", type=float, default=0.9)
     group.add_argument("--top_k", type=int, default=0)
+    group.add_argument('--max-length', type=int, default=64)
+    group.add_argument('--min-length', type=int, default=2)
+    group.add_argument('--num-beams', type=int, default=1)
+    group.add_argument('--no-repeat-ngram-size', type=int, default=3)
+    group.add_argument('--eval-ratio', type=float, default=1.0)
     group.add_argument("--out-seq-length", type=int, default=256)
+    group.add_argument("--repetition-penalty", type=float, default=1.2)
+    group.add_argument("--early-stopping", action="store_true")
+    group.add_argument("--length-penalty", type=float, default=1.8)
     return parser
 
 
@@ -239,92 +155,16 @@ def add_data_args(parser: argparse.ArgumentParser):
     """Train/valid/test data arguments."""
 
     group = parser.add_argument_group('data', 'data configurations')
-    group.add_argument('--data-impl', type=str, default='infer',
-                       choices=['lazy', 'cached', 'mmap', 'infer'],
-                       help='Implementation of indexed datasets.')
-    group.add_argument('--mmap-warmup', action='store_true',
-                       help='Warm up mmap files.')
-    group.add_argument('--model-parallel-size', type=int, default=1,
-                       help='size of the model parallel.')
-    group.add_argument('--shuffle', action='store_true',
-                       help='Shuffle data. Shuffling is deterministic '
-                       'based on seed and current epoch.')
-    #group.add_argument('--train-data', nargs='+', default=None,
-    #                   help='Whitespace separated filenames or corpora names '
-    #                   'for training.')
     group.add_argument('--data-path', type=str, default=None,
                         help='Path to combined dataset to split.')
-
-    group.add_argument('--use-npy-data-loader', action='store_true',
-                       help='Use the numpy data loader. If set, then'
-                       'train-data-path, val-data-path, and test-data-path'
-                       'should also be provided.')
-    group.add_argument('--train-data-path', type=str, default='',
-                       help='path to the training data')
-    group.add_argument('--val-data-path', type=str, default='',
-                       help='path to the validation data')
-    group.add_argument('--test-data-path', type=str, default='',
-                       help='path to the test data')
-    group.add_argument('--input-data-sizes-file', type=str, default='sizes.txt',
-                       help='the filename containing all the shards sizes')
-
-    group.add_argument('--delim', default=',',
-                       help='delimiter used to parse csv data files')
-    group.add_argument('--text-key', default='sentence',
-                       help='key to use to extract text from json/csv')
-    group.add_argument('--eval-text-key', default=None,
-                       help='key to use to extract text from '
-                       'json/csv evaluation datasets')
-    group.add_argument('--valid-data', nargs='*', default=None,
-                       help="""Filename for validation data.""")
-    group.add_argument('--split', default='1000,1,1',
-                       help='comma-separated list of proportions for training,'
-                       ' validation, and test split')
-    group.add_argument('--test-data', nargs='*', default=None,
-                       help="""Filename for testing""")
-
-    group.add_argument('--lazy-loader', action='store_true',
-                       help='whether to lazy read the data set')
-    group.add_argument('--loose-json', action='store_true',
-                       help='Use loose json (one json-formatted string per '
-                       'newline), instead of tight json (data file is one '
-                       'json string)')
-    group.add_argument('--presplit-sentences', action='store_true',
-                       help='Dataset content consists of documents where '
-                       'each document consists of newline separated sentences')
+    group.add_argument('--tokenizer-path', type=str, default=None)
     group.add_argument('--num-workers', type=int, default=2,
                        help="""Number of workers to use for dataloading""")
-    group.add_argument('--tokenizer-model-type', type=str,
-                       default='bert-large-uncased',
-                       help="Model type to use for sentencepiece tokenization \
-                       (one of ['bpe', 'char', 'unigram', 'word']) or \
-                       bert vocab to use for BertWordPieceTokenizer (one of \
-                       ['bert-large-uncased', 'bert-large-cased', etc.])")
-    group.add_argument('--tokenizer-path', type=str, default='tokenizer.model',
-                       help='path used to save/load sentencepiece tokenization '
-                       'models')
-    group.add_argument('--tokenizer-type', type=str,
-                       default='BertWordPieceTokenizer',
-                       choices=['CharacterLevelTokenizer',
-                                'SentencePieceTokenizer',
-                                'BertWordPieceTokenizer',
-                                'GPT2BPETokenizer'],
-                       help='what type of tokenizer to use')
-    group.add_argument("--cache-dir", default=None, type=str,
-                       help="Where to store pre-trained BERT downloads")
-    group.add_argument('--use-tfrecords', action='store_true',
-                       help='load `--train-data`, `--valid-data`, '
-                       '`--test-data` from BERT tf records instead of '
-                       'normal data pipeline')
     group.add_argument('--seq-length', type=int, default=512)
     group.add_argument('--enc-seq-length', type=int, default=512,
                        help="Maximum sequence length to process")
     group.add_argument('--dec-seq-length', type=int, default=512,
                        help="Maximum sequence length to process")
-    group.add_argument('--max-preds-per-seq', type=int, default=None,
-                       help='Maximum number of predictions to use per sequence.'
-                       'Defaults to math.ceil(`--seq-length`*.15/10)*10.'
-                       'MUST BE SPECIFIED IF `--use-tfrecords` is True.')
 
     return parser
 
@@ -343,9 +183,6 @@ def get_args():
     parser = deepspeed.add_config_arguments(parser)
 
     args = parser.parse_args()
-
-    if not args.data_path and not args.train_data_path:
-        print('WARNING: No training data specified')
 
     args.cuda = torch.cuda.is_available()
 
@@ -370,11 +207,9 @@ def get_args():
         print('using world size: {} and model-parallel size: {} '.format(
             args.world_size, args.model_parallel_size))
 
-    args.dynamic_loss_scale = False
-    if args.loss_scale is None:
-        args.dynamic_loss_scale = True
-        if args.rank == 0:
-            print(' > using dynamic loss scaling')
+    args.dynamic_loss_scale = True
+    if args.rank == 0:
+        print(' > using dynamic loss scaling')
 
     # The args fp32_* or fp16_* meant to be active when the
     # args fp16 is set. So the default behaviour should all

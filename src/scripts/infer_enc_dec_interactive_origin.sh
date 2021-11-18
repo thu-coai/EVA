@@ -8,12 +8,12 @@ MP_SIZE=1
 NUM_WORKERS=1
 NUM_GPUS_PER_WORKER=1
 
-CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_attn_scale.json"
+CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config.json"
 
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/17500"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/"
 # CKPT_PATH="${WORKING_DIR}/checkpoints/eva"
-CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/new_data_scale_1103/120000"
+CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/35000"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_32_1_esc_9_13"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_32_1_esc_blender_9_15/8000"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_32_1_12G_9_7/60000/"
@@ -52,7 +52,7 @@ OPTS+=" --deepspeed_config ${DS_CONFIG}"
 # OPTS+=" --rerank_num 5"
 # OPTS+=" --human_rules"
 
-CMD="/opt/conda/bin/deepspeed -i cgpt-m0:0 --master_port 1345 --hostfile ${HOST_FILE} ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
+CMD="/opt/conda/bin/deepspeed -i cgpt-m0:1 --master_port 1225 --hostfile ${HOST_FILE} ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
 
 echo ${CMD}
 ${CMD}

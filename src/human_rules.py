@@ -71,8 +71,8 @@ def init_list():
     # l = open("/dataset/f1d6ea5b/yjz/eva-origin/src/chatterbot.tsv", "r").read().split("\n")
     all_rules = [x.strip() for x in all_rules]
     for rule in all_rules:
-        if len(rule.split("\t")) != 2:
-            print(rule)
+        # if len(rule.split("\t")) != 2:
+        #     print(rule)
         post, resp = rule.split("\t")
         posts = post.split("|")
         resps = resp.split("|")
@@ -205,12 +205,12 @@ def find_best(waiting_list, input_text, usr_contexts_str, sys_contexts_str):
     for g in waiting_list:
         for p in g[0]:
             temp_score = cal_match(p, input_text)
-            print(input_text, " ", p, " ", temp_score)
+            # print(input_text, " ", p, " ", temp_score)
             if temp_score > best_score:
                 best_resp = g
                 best_score = temp_score
 
-    if best_resp == None or best_score < 0.3:
+    if best_resp == None or best_score < 0.5:
         return None
     # return find_final_resp(input_text, best_resp)
     return handle_sys_repetition(input_text, best_resp[1], sys_contexts_str)

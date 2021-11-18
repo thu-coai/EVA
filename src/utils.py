@@ -290,7 +290,7 @@ def load_checkpoint(model, optimizer, lr_scheduler, args):
         
     if args.deepspeed:
 
-        checkpoint_name, sd = model.load_checkpoint(args.load, iteration)
+        checkpoint_name, sd = model.load_checkpoint(args.load, iteration, load_module_strict=False)
         #checkpoint_name, sd = model.load_checkpoint(args.load, iteration, load_optimizer_states=False, load_lr_scheduler_states=False)
 
         if checkpoint_name is None:
@@ -335,33 +335,14 @@ def load_checkpoint(model, optimizer, lr_scheduler, args):
                             'state.'.format(checkpoint_name))
                 exit()
 
-    # Iterations.
-    if args.finetune or release:
-        iteration = 0
-    else:
-        try:
-            iteration = sd['iteration']
+    try:
+        iteration = sd['iteration']
+    except KeyError:
+        try: # Backward compatible with older checkpoints
+            iteration = sd['total_iters']
         except KeyError:
-            try: # Backward compatible with older checkpoints
-                iteration = sd['total_iters']
-            except KeyError:
-                print_rank_0('A metadata file exists but Unable to load iteration '
-                             ' from checkpoint {}, exiting'.format(checkpoint_name))
-                exit()
-                
-    # rng states.
-    if not release and not args.finetune and not args.no_load_rng:
-        try:
-            random.setstate(sd['random_rng_state'])
-            np.random.set_state(sd['np_rng_state'])
-            torch.set_rng_state(sd['torch_rng_state'])
-            torch.cuda.set_rng_state(sd['cuda_rng_state'])
-            mpu.get_cuda_rng_tracker().set_states(sd['rng_tracker_states'])
-        except KeyError:
-            print_rank_0('Unable to load optimizer from checkpoint {}, exiting. '
-                         'Specify --no-load-optim or --finetune to prevent '
-                         'attempting to load the optimizer '
-                         'state.'.format(checkpoint_name))
+            print_rank_0('A metadata file exists but Unable to load iteration '
+                            ' from checkpoint {}, exiting'.format(checkpoint_name))
             exit()
 
     torch.distributed.barrier()

@@ -146,6 +146,7 @@ class ParallelAttention(nn.Module):
 
         self.is_decoder = is_decoder
         self.is_cross_attn = is_cross_attn
+        self.attn_scale = config.attn_scale
 
         self.has_relative_attention_bias = has_relative_attention_bias
         self.relative_attention_num_buckets = config.relative_attention_num_buckets
@@ -345,8 +346,8 @@ class ParallelAttention(nn.Module):
                                         key_layer.transpose(-1, -2))
 
         # NOTE: We follow the implementation of Transformers to remove the scale of attention+acores
-        # attention_scores = attention_scores / math.sqrt(
-        #     self.hidden_size_per_attention_head)
+        if self.attn_scale:
+            attention_scores = attention_scores / math.sqrt(self.hidden_size_per_attention_head)
         
         # relative positional bias
         if position_bias is None:
