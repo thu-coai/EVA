@@ -520,7 +520,7 @@ def postprocess_next_token_scores(
     return scores
 
 
-def generate_no_beam(model_batch, model, tokenizer: EncDecTokenizer, args, device):
+def generate_no_beam(model_batch, token_tensor_full, model, tokenizer: EncDecTokenizer, args, device):
     batch_size = args.batch_size
     target_length = args.max_length
     
@@ -572,7 +572,7 @@ def generate_no_beam(model_batch, model, tokenizer: EncDecTokenizer, args, devic
 
             logits = lm_logits[:, -1, :] / args.temperature
 
-            prev_output_tokens = torch.cat([enc_input_ids, output_ids], dim=-1)
+            prev_output_tokens = torch.cat([token_tensor_full, output_ids], dim=-1)
 
             logits = postprocess_next_token_scores(
                 tokenizer=tokenizer,
@@ -618,7 +618,7 @@ def generate_no_beam(model_batch, model, tokenizer: EncDecTokenizer, args, devic
     return generation_str_list, generation_token_ids_list
 
 
-def generate_beam(model_batch, model, tokenizer: EncDecTokenizer, args, device):
+def generate_beam(model_batch, token_tensor_full, model, tokenizer: EncDecTokenizer, args, device):
     batch_size = args.batch_size
     num_beams = args.num_beams
     target_length = args.max_length
@@ -635,6 +635,9 @@ def generate_beam(model_batch, model, tokenizer: EncDecTokenizer, args, device):
     
     enc_input_ids = enc_input_ids.contiguous().view(batch_size * num_beams, enc_input_length)
     enc_attention_mask = enc_attention_mask.contiguous().view(batch_size * num_beams, 1, enc_input_length, enc_input_length)
+    
+    token_tensor_full = token_tensor_full.unsqueeze(1).expand(batch_size, num_beams, token_tensor_full.size(-1))
+    token_tensor_full = token_tensor_full.contiguous().view(batch_size * num_beams, token_tensor_full.size(-1))
     
     enc_outputs = model(
         enc_input_ids=enc_input_ids,
@@ -686,7 +689,7 @@ def generate_beam(model_batch, model, tokenizer: EncDecTokenizer, args, device):
         logits = lm_logits[:, -1, :] / args.temperature
         scores = F.log_softmax(logits, dim=-1)
 
-        prev_output_tokens = torch.cat([enc_input_ids, output_ids], dim=-1)
+        prev_output_tokens = torch.cat([token_tensor_full, output_ids], dim=-1)
 
         scores = postprocess_next_token_scores(
             tokenizer=tokenizer,
@@ -866,6 +869,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                         else:
                             trunc_index = None
                         # print("trunc_index", trunc_index, "is_relative", is_relative)
+                        all_input_tokens_full = [x for y in all_input_tokens_list for x in y]
                         trunc_list = all_input_tokens_list
                         if trunc_index is not None:
                             trunc_list = []
@@ -877,7 +881,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                         # all_input_tokens = []
                         # for utt in all_input_tokens_list[::-1]:
                         all_input_tokens = []
-                        for utt in trunc_list[::-1]:
+                        for utt in trunc_list[:-5:-1]:
                             if len(all_input_tokens) + len(utt) + 1 <= 128:
                                 all_input_tokens = utt + all_input_tokens
                         all_input_tokens.append(tokenizer.get_sentinel_id(0))
@@ -887,6 +891,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                         prompt_len = len(prompt_tokens)
                         length_tensor = torch.tensor([input_len, prompt_len], dtype=torch.long).to(device)
                         token_tensor = torch.tensor(all_input_tokens, dtype=torch.long).to(device)
+                        token_tensor_full = torch.tensor(all_input_tokens_full, dtype=torch.long).to(device)
                         decoder_token_tensor = torch.tensor(prompt_tokens, dtype=torch.long).to(device)
 
             else:
@@ -906,14 +911,15 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                 dist.broadcast(decoder_token_tensor, 0)
 
             token_tensor = token_tensor.unsqueeze(0).repeat(args.batch_size, 1) # repeat
+            token_tensor_full = token_tensor_full.unsqueeze(0).repeat(args.batch_size, 1) 
             decoder_token_tensor = decoder_token_tensor.unsqueeze(0).repeat(args.batch_size, 1)
             target_length = args.max_length
             model_batch = get_inference_batch(token_tensor, decoder_token_tensor, device, args.batch_size, target_length, tokenizer, args)
             
             if args.num_beams == 1:
-                generation_str_list, generation_id_list = generate_no_beam(model_batch, model, tokenizer, args, device)
+                generation_str_list, generation_id_list = generate_no_beam(model_batch, token_tensor_full, model, tokenizer, args, device)
             else:
-                generation_str_list, generation_id_list  = generate_beam(model_batch, model, tokenizer, args, device)
+                generation_str_list, generation_id_list  = generate_beam(model_batch, token_tensor_full, model, tokenizer, args, device)
 
             all_input_tokens_list.append(generation_id_list[0] + [tokenizer.sep_id])
             context_utterances.append(generation_str_list[0])
@@ -980,7 +986,7 @@ def main():
 
     #setting default batch size to 1
     args.batch_size = 1
-
+    os.system('clear')
     print('Model Loaded!')
     #generate samples
     generate_samples(model, tokenizer, args, torch.cuda.current_device(), ranker=ranker, ranker_tokenizer=ranker_tokenizer)

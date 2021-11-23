@@ -8,13 +8,16 @@ MP_SIZE=1
 NUM_WORKERS=1
 NUM_GPUS_PER_WORKER=1
 
-CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_medium_attn_scale.json"
+# CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_medium_attn_scale.json"
+CONFIG_PATH="${3}"
 
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/17500"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/"
 # CKPT_PATH="${WORKING_DIR}/checkpoints/eva"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/fake-medium-0.01-0.01-1/"
-CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/9-28-medium-0.01-0.01-1-0.01"
+# CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/9-28-medium-0.01-0.01-1-0.01"
+# CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/public-8g-medium-0.01-0.01-1/"
+CKPT_PATH="${1}"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_32_1_esc_9_13"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_32_1_esc_blender_9_15/8000"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_32_1_12G_9_7/60000/"
@@ -27,10 +30,11 @@ DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
 HOST_FILE="${WORKING_DIR}/src/configs/host_files/hostfile-m0"
 
-TEMP=0.7
+TEMP=0.9
 #If TOPK/TOPP are 0 it defaults to greedy sampling, top-k will also override top-p
 TOPK=0
 TOPP=0.9
+NUM_BEAMS=6
 
 OPTS=""
 OPTS+=" --model-config ${CONFIG_PATH}"
@@ -49,11 +53,14 @@ OPTS+=" --top_p ${TOPP}"
 OPTS+=" --fp16"
 OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${DS_CONFIG}"
+OPTS+=" --num-beams ${NUM_BEAMS}"
+OPTS+=" --seed ${2}"
+OPTS+=" --length-penalty 1.7"
 # OPTS+=" --rerank"
 # OPTS+=" --rerank_num 5"
 # OPTS+=" --human_rules"
 
-CMD="/opt/conda/bin/deepspeed -i cgpt-m0:2 --master_port 1145 --hostfile ${HOST_FILE} ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
+CMD="/opt/conda/bin/deepspeed -i cgpt-m0:0 --master_port 1145 --hostfile ${HOST_FILE} ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
 
 echo ${CMD}
 ${CMD}
