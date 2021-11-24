@@ -465,15 +465,16 @@ def calc_banned_bad_words_ids(prev_input_ids, bad_words_ids):
     return banned_tokens
 
 
-def enforce_repetition_penalty_(lprobs, batch_size, num_beams, prev_output_tokens, repetition_penalty):
+def enforce_repetition_penalty_(tokenizer, lprobs, batch_size, num_beams, prev_output_tokens, repetition_penalty):
     """repetition penalty (from CTRL paper https://arxiv.org/abs/1909.05858). """
     for i in range(batch_size * num_beams):
         for previous_token in set(prev_output_tokens[i].tolist()):
-            # if score < 0 then repetition penalty has to multiplied to reduce the previous token probability
-            if lprobs[i, previous_token] < 0:
-                lprobs[i, previous_token] *= repetition_penalty
-            else:
-                lprobs[i, previous_token] /= repetition_penalty
+            if previous_token != tokenizer.sep_id:
+                # if score < 0 then repetition penalty has to multiplied to reduce the previous token probability
+                if lprobs[i, previous_token] < 0:
+                    lprobs[i, previous_token] *= repetition_penalty
+                else:
+                    lprobs[i, previous_token] /= repetition_penalty
 
 
 def postprocess_next_token_scores(
@@ -493,7 +494,7 @@ def postprocess_next_token_scores(
     # repetition penalty (from CTRL paper https://arxiv.org/abs/1909.05858)
     if repetition_penalty != 1.0:
         enforce_repetition_penalty_(
-            scores, batch_size, num_beams, input_ids, repetition_penalty,
+            tokenizer, scores, batch_size, num_beams, input_ids, repetition_penalty,
         )
 
     # set eos token prob to zero if min_length is not reached
@@ -881,7 +882,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                         # all_input_tokens = []
                         # for utt in all_input_tokens_list[::-1]:
                         all_input_tokens = []
-                        for utt in trunc_list[:-5:-1]:
+                        for utt in trunc_list[:-9:-1]:
                             if len(all_input_tokens) + len(utt) + 1 <= 128:
                                 all_input_tokens = utt + all_input_tokens
                         all_input_tokens.append(tokenizer.get_sentinel_id(0))
