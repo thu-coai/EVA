@@ -93,7 +93,7 @@ class EncDecModelForInference(EncDecModel):
 
 
 class BeamHypotheses(object):
-    def __init__(self, num_beams, max_length, length_penalty, early_stopping):
+    def __init__(self, num_beams, max_length, length_penalty, early_stopping, tokenizer=None):
         """
         Initialize n-best list of hypotheses.
         """
@@ -104,6 +104,9 @@ class BeamHypotheses(object):
         self.length_fact = []
         self.beams = []
         self.worst_score = 1e9
+        self.raw_worst_score = 1e9
+
+        self.tokenizer = tokenizer
 
     def __len__(self):
         """
@@ -116,15 +119,22 @@ class BeamHypotheses(object):
         Add a new hypothesis to the list.
         """
         score = sum_logprobs / len(hyp) ** self.length_penalty
+        # print(f'add hyp = {self.tokenizer.decode(hyp.cpu().tolist())}, score = {score}')
         if len(self) < self.num_beams or score > self.worst_score:
             self.beams.append((score, hyp))
             self.length_fact.append(len(hyp) ** self.length_penalty)
-            if len(self) > self.num_beams:
-                sorted_scores = sorted([(s, idx) for idx, (s, _) in enumerate(self.beams)])
+            if len(self) > self.num_beams: # FIXME:
+                sorted_scores = sorted([(s, idx, _) for idx, (s, _) in enumerate(self.beams)])
                 del self.beams[sorted_scores[0][1]]
                 self.worst_score = sorted_scores[1][0]
+                self.raw_worst_score = self.worst_score * (len(sorted_scores[1][2]) ** self.length_penalty)
             else:
                 self.worst_score = min(score, self.worst_score)
+                self.raw_worst_score = sum_logprobs
+        
+        # print('maintained hypothesis: ')
+        # for score, hyp in self.beams:
+        #     print(f'raw_score = {score * (len(hyp) ** self.length_penalty)}, score = {score}, hyp = {self.tokenizer.decode(hyp.cpu().tolist())}')
 
     def is_done(self, best_sum_logprobs, cur_len):
         """
@@ -138,29 +148,72 @@ class BeamHypotheses(object):
             return True
         else:
             cur_score = best_sum_logprobs / cur_len ** self.length_penalty
+            # print(f'cur best score = {cur_score}, cur worst score = {self.worst_score}, cur raw worst score = {self.raw_worst_score}')
             ret = self.worst_score >= cur_score
             return ret
 
 
-def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_size: int) -> None:
+def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_size: int, tokenizer: EncDecTokenizer) -> None:
+    # TODO: 以中文字为单位
     """Copied from fairseq for no_repeat_ngram in beam_search"""
-    cur_len = prev_input_ids.size(-1)
-    if cur_len + 1 < no_repeat_ngram_size:
-        # return no banned tokens if we haven't generated no_repeat_ngram_size tokens yet
-        return [[] for _ in range(num_hypos)]
+    # cur_len = prev_input_ids.size(-1)
+    # # prev_input_words = tokenizer.decode(prev)
+    # if cur_len + 1 < no_repeat_ngram_size:
+    #     # return no banned tokens if we haven't generated no_repeat_ngram_size tokens yet
+    #     return [[] for _ in range(num_hypos)]
     generated_ngrams = [{} for _ in range(num_hypos)]
+    prev_input_words = []
+    for ids in prev_input_ids:
+        tokens = tokenizer.convert_ids_to_tokens(ids.tolist())
+        words = []
+        for token in tokens:
+            if token == '<sep>':
+                words.append(token)
+            else:
+                words += list(token)
+        prev_input_words.append(words)
     for idx in range(num_hypos):
-        gen_tokens = prev_input_ids[idx].tolist()
+        gen_words = prev_input_words[idx]
+        # print('gen_words = ', gen_words)
+        # gen_tokens = prev_input_ids[idx].tolist()
+        # gen_words = tokenizer.decode(gen_tokens)
         generated_ngram = generated_ngrams[idx]
-        for ngram in zip(*[gen_tokens[i:] for i in range(no_repeat_ngram_size)]):
-            prev_ngram_tuple = tuple(ngram[:-1])
-            generated_ngram[prev_ngram_tuple] = generated_ngram.get(prev_ngram_tuple, []) + [ngram[-1]]
+        for ngram in zip(*[gen_words[i:] for i in range(no_repeat_ngram_size)]):
+            for prefix_len in range(no_repeat_ngram_size):
+                prev_ngram = ''.join(ngram[:prefix_len])
+                suffix_ngram = ''.join(ngram[prefix_len:])
+                if tokenizer.check(suffix_ngram): # 在词表中
+                    generated_ngram[prev_ngram] = generated_ngram.get(prev_ngram, set()) | set([suffix_ngram])
+            # prev_ngram_tuple = ''.join(ngram[:-1])
+            # generated_ngram[prev_ngram_tuple] = generated_ngram.get(prev_ngram_tuple, set()) | set([ngram[-1]])
+    
+    # print('generated_ngrams = ', generated_ngrams)
 
     def _get_generated_ngrams(hypo_idx):
         # Before decoding the next token, prevent decoding of ngrams that have already appeared
-        start_idx = cur_len + 1 - no_repeat_ngram_size
-        ngram_idx = tuple(prev_input_ids[hypo_idx, start_idx:cur_len].tolist())
-        return generated_ngrams[hypo_idx].get(ngram_idx, [])
+
+        cur_len = len(prev_input_words[hypo_idx])
+        
+        generated_ngram_idx = []
+        '''
+        FIXME:
+        3-gram, prefix的长度可以是2/1/0
+        '''
+        for prefix_len in range(no_repeat_ngram_size):
+            # print('')
+            ngram_words = ''.join(prev_input_words[hypo_idx][cur_len-prefix_len:])
+            # print('prev_input = ', prev_input_words[hypo_idx])
+            # print('ngram_words = ', ngram_words)
+            generated_ngram_words = generated_ngrams[hypo_idx].get(ngram_words, [])
+            # print('generated_ngram_words = ', generated_ngram_words)
+            # print('all generated_ngrams = ', generated_ngrams[hypo_idx])
+            generated_ngram_idx += tokenizer.convert_tokens_to_ids(generated_ngram_words)
+            # generated_ngram_idx += [x for word in generated_ngram_words for x in tokenizer.get_prefix_id_list(word)] # FIXME:
+            # print('generated_ngram_idx = ', generated_ngram_idx)
+            # print('='*100)
+        if prev_input_words[hypo_idx][-1] in ['，', ',']:
+            generated_ngram_idx.append(tokenizer.convert_token_to_id('但'))
+        return generated_ngram_idx
 
     banned_tokens = [_get_generated_ngrams(hypo_idx) for hypo_idx in range(num_hypos)]
     return banned_tokens
@@ -505,7 +558,7 @@ def postprocess_next_token_scores(
         # calculate a list of banned tokens to prevent repetitively generating the same ngrams
         num_batch_hypotheses = batch_size * num_beams
         # from fairseq: https://github.com/pytorch/fairseq/blob/a07cb6f40480928c9e0548b737aadd36ee66ac76/fairseq/sequence_generator.py#L345
-        banned_batch_tokens = calc_banned_ngram_tokens(input_ids, num_batch_hypotheses, no_repeat_ngram_size)
+        banned_batch_tokens = calc_banned_ngram_tokens(input_ids, num_batch_hypotheses, no_repeat_ngram_size, tokenizer=tokenizer)
         for i, banned_tokens in enumerate(banned_batch_tokens):
             scores[i, banned_tokens] = -10000
 
@@ -670,7 +723,7 @@ def generate_beam(model_batch, token_tensor_full, model, tokenizer: EncDecTokeni
 
     # generated hypotheses
     generated_hyps = [
-        BeamHypotheses(num_beams, target_length, args.length_penalty, early_stopping=args.early_stopping)
+        BeamHypotheses(num_beams, target_length, args.length_penalty, early_stopping=args.early_stopping, tokenizer=tokenizer)
         for _ in range(batch_size)
     ]
 
@@ -774,9 +827,15 @@ def generate_beam(model_batch, token_tensor_full, model, tokenizer: EncDecTokeni
 
             # Check if we are done so that we can save a pad step if all(done)
             # is_done: the best candiates in the current beam is worse than the sentences already in generated_hyps
-            done[batch_idx] = done[batch_idx] or generated_hyps[batch_idx].is_done(
+            # print('cur worst score = ', generated_hyps[batch_idx].worst_score)
+            # print('cur raw worst score = ', generated_hyps[batch_idx].raw_worst_score)
+            done[batch_idx] = done[batch_idx] or generated_hyps[batch_idx].is_done( # TODO: length penalty could influence the ending of generation
                 next_scores[batch_idx].max().item(), gen_len
             )
+            # for score, token_id, effective_beam_id in next_sent_beam:
+            #     print(f'raw_socre = {score}, score = {score / gen_len ** args.length_penalty}, sentence = {tokenizer.decode(torch.cat([output_ids[effective_beam_id], token_id.unsqueeze(dim=0)], dim=-1).cpu().tolist())}')
+            # print(f'id_done = {done[batch_idx]}')
+            # print('='*100)
 
             # update next beam content
             assert len(next_sent_beam) == num_beams, "Beam should always be full"
@@ -823,6 +882,8 @@ def generate_beam(model_batch, token_tensor_full, model, tokenizer: EncDecTokeni
     # retrieve best hypotheses
     for i, hypotheses in enumerate(generated_hyps):
         sorted_hyps = sorted(hypotheses.beams, key=lambda x: x[0])
+        # for score, hyp in sorted_hyps:
+        #     print(f'score = {score}, hyp = {tokenizer.decode(hyp.cpu().tolist())}')
         best_hyp = sorted_hyps.pop()[1]
         best.append(tokenizer.decode(best_hyp.cpu().tolist()))
         best_ids.append(best_hyp.cpu().tolist())
@@ -844,6 +905,21 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                 input_text = input("Usr >>> ")
                 if input_text == "clear":
                     print("Clear Dialog")
+                    set_random_seed(args.seed) # reset rng
+                    all_input_tokens_list = []
+                    context_utterances = []
+                    length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
+                elif input_text.startswith("set len penalty:"):
+                    args.length_penalty = float(input_text.split(":")[-1].strip())
+                    print(f"set length penalty to {args.length_penalty}, Clear Dialog")
+                    set_random_seed(args.seed) # reset rng
+                    all_input_tokens_list = []
+                    context_utterances = []
+                    length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
+                elif input_text.startswith("set repetition penalty:"):
+                    args.repetition_penalty = float(input_text.split(":")[-1].strip())
+                    print(f"set repetition penalty to {args.repetition_penalty}, Clear Dialog")
+                    set_random_seed(args.seed) # reset rng
                     all_input_tokens_list = []
                     context_utterances = []
                     length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
@@ -987,7 +1063,7 @@ def main():
 
     #setting default batch size to 1
     args.batch_size = 1
-    os.system('clear')
+    # os.system('clear')
     print('Model Loaded!')
     #generate samples
     generate_samples(model, tokenizer, args, torch.cuda.current_device(), ranker=ranker, ranker_tokenizer=ranker_tokenizer)
