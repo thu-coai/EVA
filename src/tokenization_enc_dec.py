@@ -164,6 +164,26 @@ class EncDecTokenizer(object):
     def eod_token(self):
         return '<eod>'
 
+    def check(self, token):
+        return token in self.encoder
+
+    def convert_token_to_id(self, token):
+        return self.encoder[token]
+
+    def convert_tokens_to_ids(self, tokens):
+        return [self.encoder[token] for token in tokens]
+
+    def convert_ids_to_tokens(self, ids):
+        raw_tokens = [self.decoder[i] for i in ids]
+        tokens = []
+        for token in raw_tokens:
+            if token == '\u2582':
+                token = ' '
+            elif token == '\u2583':
+                token = '\n'
+            tokens.append(token)
+        return tokens
+
     def get_sentinel_num(self):
         return len(self.sentinel_list)
 
