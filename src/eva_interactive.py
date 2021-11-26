@@ -518,10 +518,12 @@ def calc_banned_bad_words_ids(prev_input_ids, bad_words_ids):
     return banned_tokens
 
 
-def enforce_repetition_penalty_(lprobs, batch_size, num_beams, prev_output_tokens, repetition_penalty):
+def enforce_repetition_penalty_(lprobs, batch_size, num_beams, prev_output_tokens, repetition_penalty, tokenizer=None):
     """repetition penalty (from CTRL paper https://arxiv.org/abs/1909.05858). """
     for i in range(batch_size * num_beams):
-        for previous_token in set(prev_output_tokens[i].tolist()):
+        for previous_token in prev_output_tokens[i].tolist():
+            if previous_token == tokenizer.sep_id:
+                continue
             # if score < 0 then repetition penalty has to multiplied to reduce the previous token probability
             if lprobs[i, previous_token] < 0:
                 lprobs[i, previous_token] *= repetition_penalty
@@ -546,7 +548,7 @@ def postprocess_next_token_scores(
     # repetition penalty (from CTRL paper https://arxiv.org/abs/1909.05858)
     if repetition_penalty != 1.0:
         enforce_repetition_penalty_(
-            scores, batch_size, num_beams, input_ids, repetition_penalty,
+            scores, batch_size, num_beams, input_ids, repetition_penalty, tokenizer=tokenizer
         )
 
     # set eos token prob to zero if min_length is not reached
