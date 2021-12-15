@@ -1,6 +1,6 @@
 #! /bin/bash
 
-WORKING_DIR=/dataset/f1d6ea5b/gyx-eva/eva-origin/
+WORKING_DIR=/dataset/f1d6ea5b/songyi/12-9/eva-interactive
 
 # Change for multinode config
 MP_SIZE=1
@@ -9,7 +9,7 @@ NUM_WORKERS=1
 NUM_GPUS_PER_WORKER=1
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_attn_scale.json"
-
+RULE_PATH="${WORKING_DIR}/rules"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/17500"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/"
 # CKPT_PATH="${WORKING_DIR}/checkpoints/eva"
@@ -52,6 +52,7 @@ OPTS+=" --length-penalty 1.6"
 OPTS+=" --fp16"
 OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${DS_CONFIG}"
+OPTS+=" --rule_path ${RULE_PATH}"
 # OPTS+=" --rerank"
 # OPTS+=" --rerank_num 5"
 # OPTS+=" --human_rules"
