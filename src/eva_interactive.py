@@ -124,7 +124,7 @@ class BeamHypotheses(object):
         if len(self) < self.num_beams or score > self.worst_score:
             self.beams.append((score, hyp))
             self.length_fact.append(len(hyp) ** self.length_penalty)
-            if len(self) > self.num_beams: # FIXME:
+            if len(self) > self.num_beams:
                 sorted_scores = sorted([(s, idx, _) for idx, (s, _) in enumerate(self.beams)])
                 del self.beams[sorted_scores[0][1]]
                 self.worst_score = sorted_scores[1][0]
@@ -154,7 +154,6 @@ class BeamHypotheses(object):
             return ret
 
 
-
 def construct_antonym_dict(args):
     with open(os.path.join(args.rule_path, './antonym/antonym.txt'), 'r') as f:
         data = f.read().split("\n")
@@ -166,6 +165,7 @@ def construct_antonym_dict(args):
         antonym_dict[second].append(first)
     return antonym_dict
 
+
 def calc_banned_antonym_words_ids(input_tokens, tokenizer, antonym_dict):
     antonym_words = [set()] * len(input_tokens)
     # only consider tokens occurring in current sentence
@@ -176,12 +176,9 @@ def calc_banned_antonym_words_ids(input_tokens, tokenizer, antonym_dict):
             antonym_words[idx].update(tokenizer.convert_tokens_to_ids(antonym_dict[word]))
 
     return [list(tokens) for tokens in antonym_words]
-    
-
 
 
 def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_size: int, tokenizer: EncDecTokenizer) -> None:
-    # TODO: 以中文字为单位
     """Copied from fairseq for no_repeat_ngram in beam_search"""
     # cur_len = prev_input_ids.size(-1)
     # # prev_input_words = tokenizer.decode(prev)
@@ -223,7 +220,6 @@ def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_siz
         
         generated_ngram_idx = []
         '''
-        FIXME:
         3-gram, prefix的长度可以是2/1/0
         '''
         for prefix_len in range(no_repeat_ngram_size):
@@ -235,7 +231,7 @@ def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_siz
             # print('generated_ngram_words = ', generated_ngram_words)
             # print('all generated_ngrams = ', generated_ngrams[hypo_idx])
             generated_ngram_idx += tokenizer.convert_tokens_to_ids(generated_ngram_words)
-            # generated_ngram_idx += [x for word in generated_ngram_words for x in tokenizer.get_prefix_id_list(word)] # FIXME:
+            # generated_ngram_idx += [x for word in generated_ngram_words for x in tokenizer.get_prefix_id_list(word)]
             # print('generated_ngram_idx = ', generated_ngram_idx)
             # print('='*100)
         if prev_input_words[hypo_idx][-1] in ['，', ',']:
@@ -1006,7 +1002,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                         # all_input_tokens = []
                         # for utt in all_input_tokens_list[::-1]:
                         all_input_tokens = []
-                        for utt in trunc_list[:-5:-1]: # FIXME: 逻辑有点奇怪，不如就直接用128限制
+                        for utt in trunc_list[:-9:-1]:
                             if len(all_input_tokens) + len(utt) + 1 <= 128:
                                 all_input_tokens = utt + all_input_tokens
                         all_input_tokens.append(tokenizer.get_sentinel_id(0))
