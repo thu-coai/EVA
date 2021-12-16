@@ -23,6 +23,7 @@ import random
 import numpy as np
 import torch
 import torch.nn.functional as F
+from collections import defaultdict
 import time
 from arguments import get_args
 from utils import Timers
@@ -123,7 +124,7 @@ class BeamHypotheses(object):
         if len(self) < self.num_beams or score > self.worst_score:
             self.beams.append((score, hyp))
             self.length_fact.append(len(hyp) ** self.length_penalty)
-            if len(self) > self.num_beams: # FIXME:
+            if len(self) > self.num_beams:
                 sorted_scores = sorted([(s, idx, _) for idx, (s, _) in enumerate(self.beams)])
                 del self.beams[sorted_scores[0][1]]
                 self.worst_score = sorted_scores[1][0]
@@ -153,8 +154,31 @@ class BeamHypotheses(object):
             return ret
 
 
+def construct_antonym_dict(args):
+    with open(os.path.join(args.rule_path, './antonym/antonym.txt'), 'r') as f:
+        data = f.read().split("\n")
+    data = [eval(item) for item in data if item]
+    antonym_dict = defaultdict(list)
+
+    for first, second in data:
+        antonym_dict[first].append(second)
+        antonym_dict[second].append(first)
+    return antonym_dict
+
+
+def calc_banned_antonym_words_ids(input_tokens, tokenizer, antonym_dict):
+    antonym_words = [set()] * len(input_tokens)
+    # only consider tokens occurring in current sentence
+    for idx, tokens in enumerate(input_tokens):
+        for word in tokenizer.convert_ids_to_tokens(reversed(tokens.tolist())):
+            if word == '<sep>':
+                break
+            antonym_words[idx].update(tokenizer.convert_tokens_to_ids(antonym_dict[word]))
+
+    return [list(tokens) for tokens in antonym_words]
+
+
 def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_size: int, tokenizer: EncDecTokenizer) -> None:
-    # TODO: 以中文字为单位
     """Copied from fairseq for no_repeat_ngram in beam_search"""
     # cur_len = prev_input_ids.size(-1)
     # # prev_input_words = tokenizer.decode(prev)
@@ -196,7 +220,6 @@ def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_siz
         
         generated_ngram_idx = []
         '''
-        FIXME:
         3-gram, prefix的长度可以是2/1/0
         '''
         for prefix_len in range(no_repeat_ngram_size):
@@ -208,7 +231,7 @@ def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_siz
             # print('generated_ngram_words = ', generated_ngram_words)
             # print('all generated_ngrams = ', generated_ngrams[hypo_idx])
             generated_ngram_idx += tokenizer.convert_tokens_to_ids(generated_ngram_words)
-            # generated_ngram_idx += [x for word in generated_ngram_words for x in tokenizer.get_prefix_id_list(word)] # FIXME:
+            # generated_ngram_idx += [x for word in generated_ngram_words for x in tokenizer.get_prefix_id_list(word)]
             # print('generated_ngram_idx = ', generated_ngram_idx)
             # print('='*100)
         if prev_input_words[hypo_idx][-1] in ['，', ',']:
@@ -410,8 +433,11 @@ def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-10000):
 
     batch_size = logits.size()[0]
     if top_p > 0.0:
+        # logits : (batch_size, vocab_size)
         logits=logits.view(batch_size, -1).contiguous()
+        # logits : (batch_size, vocab_size)
         for logit in logits:
+            # logit: (vocab_size)
             sorted_logits, sorted_indices = torch.sort(logit, descending=True)
             cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
 
@@ -541,8 +567,9 @@ def postprocess_next_token_scores(
     max_length,
     eos_token_id,
     repetition_penalty,
-    batch_size,
+    batch_size, 
     num_beams,
+    antonym_dict,
 ):
     # repetition penalty (from CTRL paper https://arxiv.org/abs/1909.05858)
     if repetition_penalty != 1.0:
@@ -559,6 +586,9 @@ def postprocess_next_token_scores(
         num_batch_hypotheses = batch_size * num_beams
         # from fairseq: https://github.com/pytorch/fairseq/blob/a07cb6f40480928c9e0548b737aadd36ee66ac76/fairseq/sequence_generator.py#L345
         banned_batch_tokens = calc_banned_ngram_tokens(input_ids, num_batch_hypotheses, no_repeat_ngram_size, tokenizer=tokenizer)
+        # from IPython import embed
+
+        # embed()
         for i, banned_tokens in enumerate(banned_batch_tokens):
             scores[i, banned_tokens] = -10000
 
@@ -568,6 +598,13 @@ def postprocess_next_token_scores(
 
         for i, banned_tokens in enumerate(banned_tokens):
             scores[i, banned_tokens] = -10000
+    
+    # TODO：添加if条件
+    # add antonym banned list
+    banned_tokens = calc_banned_antonym_words_ids(input_ids, tokenizer, antonym_dict)
+
+    for i, banned_tokens in enumerate(banned_tokens):
+        scores[i, banned_tokens] = -10000
 
     scores[:, 0] = -50000
 
@@ -641,6 +678,7 @@ def generate_no_beam(model_batch, token_tensor_full, model, tokenizer: EncDecTok
                 repetition_penalty=args.repetition_penalty,
                 batch_size=batch_size,
                 num_beams=1,
+                antonym_dict=None
             )
 
             logits = top_k_logits(logits, top_k=args.top_k, top_p=args.top_p)
@@ -721,6 +759,9 @@ def generate_beam(model_batch, token_tensor_full, model, tokenizer: EncDecTokeni
     
     gen_len = 0
 
+    # construct antonym dict
+    antonym_dict = construct_antonym_dict(args)
+
     # generated hypotheses
     generated_hyps = [
         BeamHypotheses(num_beams, target_length, args.length_penalty, early_stopping=args.early_stopping, tokenizer=tokenizer)
@@ -758,7 +799,9 @@ def generate_beam(model_batch, token_tensor_full, model, tokenizer: EncDecTokeni
             repetition_penalty=args.repetition_penalty,
             batch_size=batch_size,
             num_beams=num_beams,
+            antonym_dict=antonym_dict
         )
+
         if do_sample:
             _scores = scores + beam_scores[:, None].expand_as(scores)
             if args.temperature != 1.0:
@@ -992,7 +1035,7 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
             decoder_token_tensor = decoder_token_tensor.unsqueeze(0).repeat(args.batch_size, 1)
             target_length = args.max_length
             model_batch = get_inference_batch(token_tensor, decoder_token_tensor, device, args.batch_size, target_length, tokenizer, args)
-            
+   
             if args.num_beams == 1:
                 generation_str_list, generation_id_list = generate_no_beam(model_batch, token_tensor_full, model, tokenizer, args, device)
             else:
@@ -1065,6 +1108,7 @@ def main():
     args.batch_size = 1
     # os.system('clear')
     print('Model Loaded!')
+    print("enter")
     #generate samples
     generate_samples(model, tokenizer, args, torch.cuda.current_device(), ranker=ranker, ranker_tokenizer=ranker_tokenizer)
     

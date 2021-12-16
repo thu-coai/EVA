@@ -9,7 +9,7 @@ NUM_WORKERS=1
 NUM_GPUS_PER_WORKER=1
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_attn_scale.json"
-
+RULE_PATH="${WORKING_DIR}/rules"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/17500"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/"
 # CKPT_PATH="${WORKING_DIR}/checkpoints/eva"
@@ -24,7 +24,7 @@ RANKER_CONFIG_PATH="/${WORKING_DIR}//checkpoints/ranker"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/finetune_with_pretrain_0.00005_128_1/"
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
-HOST_FILE="${WORKING_DIR}/src/configs/host_files/hostfile-s1"
+HOST_FILE="${WORKING_DIR}/src/configs/host_files/hostfile-s7"
 
 TEMP=0.9
 #If TOPK/TOPP are 0 it defaults to greedy sampling, top-k will also override top-p
@@ -53,11 +53,12 @@ OPTS+=" --repetition-penalty 1.6"
 OPTS+=" --fp16"
 OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${DS_CONFIG}"
+OPTS+=" --rule_path ${RULE_PATH}"
 # OPTS+=" --rerank"
 # OPTS+=" --rerank_num 5"
 # OPTS+=" --human_rules"
 
-CMD="/opt/conda/bin/deepspeed -i cgpt-s1:6 --master_port 1345 --hostfile ${HOST_FILE} ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
+CMD="/opt/conda/bin/deepspeed -i cgpt-s7:0 --master_port 1345 --hostfile ${HOST_FILE} ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
 
 echo ${CMD}
 ${CMD}
