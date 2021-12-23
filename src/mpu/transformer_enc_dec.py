@@ -345,7 +345,7 @@ class ParallelAttention(nn.Module):
         attention_scores = torch.matmul(query_layer,
                                         key_layer.transpose(-1, -2))
 
-        # NOTE: We follow the implementation of Transformers to remove the scale of attention+acores
+        # NOTE: We follow the implementation of Transformers to remove the scale of attention_acores
         if self.attn_scale:
             attention_scores = attention_scores / math.sqrt(self.hidden_size_per_attention_head)
         
@@ -596,10 +596,11 @@ class ParallelBlock(nn.Module):
 
 
 class ParallelTransformer(nn.Module):
-    def __init__(self, config: EncDecConfig, word_embeds: VocabParallelEmbedding, is_decoder=False, checkpoint_activations=False, checkpoint_num_layers=1):
+    def __init__(self, config: EncDecConfig, word_embeds: VocabParallelEmbedding, role_embeds: nn.Embedding, is_decoder=False, checkpoint_activations=False, checkpoint_num_layers=1):
         super(ParallelTransformer, self).__init__()
         
         self.word_embeds = word_embeds
+        self.role_embeds = role_embeds
         # self.position_embeds = nn.Embedding(config.max_position_embeddings, config.d_model)
         # init_method_normal(std=config.init_method_std)(self.position_embeds.weight)
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -632,16 +633,22 @@ class ParallelTransformer(nn.Module):
         self,
         input_ids=None,
         position_ids=None,
+        role_ids=None,
         attention_mask=None,
         cross_attention_mask=None,
         enc_hidden_states=None,
         past_key_values=None,):
         
         inputs_embeds = self.word_embeds(input_ids)
+        if role_ids is not None:
+            role_embeds = self.role_embeds(role_ids)
+            # add role embeddings
+            inputs_embeds = inputs_embeds + role_embeds
         
         # remove abstract position ids
         # pos_embeds = self.position_embeds(position_ids)
         # inputs_embeds = inputs_embeds + pos_embeds
+
 
         hidden_states = self.dropout(inputs_embeds)
         position_bias = None

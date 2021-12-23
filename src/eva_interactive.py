@@ -26,7 +26,6 @@ import torch.nn.functional as F
 from collections import defaultdict
 import time
 from arguments import get_args
-from utils import Timers
 from utils import load_checkpoint
 from tokenization_enc_dec import EncDecTokenizer
 import mpu
@@ -34,7 +33,7 @@ import deepspeed
 import torch.distributed as dist
 from model import EncDecModel, EncDecConfig
 from fp16 import FP16_Module
-from utils import print_rank_0
+from utils import print_rank_0, initialize_distributed, set_random_seed
 from fuzzywuzzy import fuzz
 from transformers import BertTokenizer, BertForSequenceClassification, BertConfig
 from torch.nn.utils.rnn import pad_sequence
@@ -1048,30 +1047,6 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device, ranker=Non
                 print("Sys >>> {}".format(generation_str_list[0]))
 
 
-def initialize_distributed(args):
-    """Initialize torch.distributed."""
-
-    # Manually set the device ids.
-    device = args.rank % torch.cuda.device_count()
-    if args.local_rank is not None:
-        device = args.local_rank
-    torch.cuda.set_device(device)
-    # Call the init process
-    deepspeed.init_distributed()
-    # Set the model-parallel / data-parallel communicators.
-    mpu.initialize_model_parallel(args.model_parallel_size)
-
-
-def set_random_seed(seed):
-    """Set random seed for reproducability."""
-
-    if seed is not None and seed > 0:
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        mpu.model_parallel_cuda_manual_seed(seed)
-
-
 def main():
     """Main serving program."""
 
@@ -1100,9 +1075,6 @@ def main():
 
     # Model, optimizer, and learning rate.
     model = setup_model_for_inference(args, tokenizer.vocab_size)
-
-    # Timer.
-    timers = Timers()
 
     #setting default batch size to 1
     args.batch_size = 1

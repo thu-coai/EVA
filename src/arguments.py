@@ -28,16 +28,6 @@ def add_model_config_args(parser: argparse.ArgumentParser):
 
     group.add_argument('--model-config', type=str)
     group.add_argument('--model-parallel-size', type=int, default=1)
-    group.add_argument("--ranker-config", type=str)
-    group.add_argument('--attention-dropout', type=float, default=0.1,
-                       help='dropout probability for attention weights')
-    group.add_argument('--vocab-size', type=int, default=30522,
-                       help='vocab size to use for non-character-level '
-                       'tokenization. This value will only be used when '
-                       'creating a tokenizer')
-    group.add_argument('--make-vocab-size-divisible-by', type=int, default=128,
-                       help='Pad the vocab size to be divisible by this value.'
-                       'This is added for computational efficieny reasons.')
     group.add_argument('--cpu-optimizer', action='store_true',
                                    help='Run optimizer on CPU')
     group.add_argument('--cpu_torch_adam', action='store_true',
@@ -62,8 +52,19 @@ def add_training_args(parser: argparse.ArgumentParser):
 
     group = parser.add_argument_group('train', 'training configurations')
 
+    group.add_argument('--do-train', action="store_true")
+    group.add_argument('--do-valid', action="store_true")
+    group.add_argument('--do-eval', action="store_true")
+
+    group.add_argument('--train-ratio', type=float, default=1)
+    group.add_argument('--valid-ratio', type=float, default=1)
+    group.add_argument('--eval-ratio', type=float, default=1)
+
     group.add_argument('--batch-size', type=int, default=4,
                        help='Data Loader batch size')
+    group.add_argument('--gradient-accumulation-steps', type=int, default=1)
+    group.add_argument('--train-iters', type=int, default=-1)
+    group.add_argument('--epochs', type=int, default=3)
     group.add_argument('--weight-decay', type=float, default=0.01,
                        help='weight decay coefficient for L2 regularization')
     group.add_argument('--checkpoint-activations', action='store_true',
@@ -78,6 +79,7 @@ def add_training_args(parser: argparse.ArgumentParser):
 
     group.add_argument('--seed', type=int, default=1234,
                        help='random seed')
+    
     # Batch prodecuer arguments
     group.add_argument('--reset-position-ids', action='store_true',
                        help='Reset posistion ids after end-of-document token.')
@@ -97,15 +99,29 @@ def add_training_args(parser: argparse.ArgumentParser):
     group.add_argument('--warmup', type=float, default=0.01,
                        help='percentage of data to warmup on (.01 = 1% of all '
                        'training iters). Default 0.01')
+    
     # model checkpointing
     group.add_argument('--load', type=str, default=None,
                        help='Path to a directory containing a model checkpoint.')
-    group.add_argument("--ranker-load", type=str, default=None,
-                       help='Path to a directory containing a ranker model checkpoint')
+    group.add_argument('--load_optimizer_states', action="store_true")
+    group.add_argument('--load_lr_scheduler_states', action="store_true")
+    group.add_argument('--no_load_strict', action="store_true")
     group.add_argument('--no-load-optim', action='store_true',
                        help='Do not load optimizer when loading checkpoint.')
     group.add_argument('--no-load-rng', action='store_true',
                        help='Do not load rng state when loading checkpoint.')
+
+    group.add_argument('--save', type=str, default=None)
+    group.add_argument('--save-interval', type=int, default=10)
+    group.add_argument('--no-save-optim', action='store_true',
+                       help='Do not save current optimizer.')
+    group.add_argument('--no-save-rng', action='store_true',
+                    help='Do not save current rng state.')
+
+    # logging
+    group.add_argument('--log-file', type=str, default=None)
+    group.add_argument('--log-interval', type=int, default=5)
+
     # distributed training args
     group.add_argument('--distributed-backend', default='nccl',
                        help='which backend to use for distributed '
@@ -122,12 +138,10 @@ def add_evaluation_args(parser: argparse.ArgumentParser):
 
     group = parser.add_argument_group('validation', 'validation configurations')
 
-    group.add_argument('--rerank', action="store_true")
-    group.add_argument('--rerank-num', type=int, default=1)
-    group.add_argument("--human-rules", action="store_true")
     group.add_argument('--eval-batch-size', type=int, default=None,
                        help='Data Loader batch size for evaluation datasets.'
                        'Defaults to `--batch-size`')
+    group.add_argument('--eval-interval', type=int, default=10)
 
     return parser
 
@@ -143,12 +157,10 @@ def add_text_generate_args(parser: argparse.ArgumentParser):
     group.add_argument('--min-length', type=int, default=2)
     group.add_argument('--num-beams', type=int, default=1)
     group.add_argument('--no-repeat-ngram-size', type=int, default=3)
-    group.add_argument('--eval-ratio', type=float, default=1.0)
     group.add_argument("--out-seq-length", type=int, default=256)
     group.add_argument("--repetition-penalty", type=float, default=1.2)
     group.add_argument("--early-stopping", action="store_true")
     group.add_argument("--length-penalty", type=float, default=1.8)
-    group.add_argument("--rule_path", type=str)
     return parser
 
 
@@ -157,11 +169,13 @@ def add_data_args(parser: argparse.ArgumentParser):
 
     group = parser.add_argument_group('data', 'data configurations')
     group.add_argument('--data-path', type=str, default=None,
-                        help='Path to combined dataset to split.')
+                        help='Path to the directory that contains train/valid/test.txt')
+    group.add_argument('--cache-path', type=str, default=None, 
+                        help="Path to cache the data as .pkl")
     group.add_argument('--tokenizer-path', type=str, default=None)
+    group.add_argument('--data-ext', type=str, default=".txt")
     group.add_argument('--num-workers', type=int, default=2,
                        help="""Number of workers to use for dataloading""")
-    group.add_argument('--seq-length', type=int, default=512)
     group.add_argument('--enc-seq-length', type=int, default=512,
                        help="Maximum sequence length to process")
     group.add_argument('--dec-seq-length', type=int, default=512,
