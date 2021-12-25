@@ -217,7 +217,7 @@ def get_checkpoint_iteration(args):
     return iteration, release, True
 
 
-def load_checkpoint(model, optimizer, lr_scheduler, args):
+def load_checkpoint(args, model, optimizer=None, lr_scheduler=None):
     """Load a model checkpoint."""
 
     iteration, release, success = get_checkpoint_iteration(args)

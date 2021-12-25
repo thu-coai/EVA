@@ -161,6 +161,7 @@ def add_text_generate_args(parser: argparse.ArgumentParser):
     group.add_argument("--repetition-penalty", type=float, default=1.2)
     group.add_argument("--early-stopping", action="store_true")
     group.add_argument("--length-penalty", type=float, default=1.8)
+    group.add_argument("--rule-path", type=str, default=None)
     return parser
 
 

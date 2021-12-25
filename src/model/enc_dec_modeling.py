@@ -50,19 +50,15 @@ class EncDecModel(nn.Module):
     def forward(
         self, 
         enc_input_ids=None,
-        enc_position_ids=None,
         enc_role_ids=None,
         enc_attention_mask=None,
         dec_input_ids=None,
-        dec_position_ids=None,
         dec_role_ids=None,
         dec_attention_mask=None,
         cross_attention_mask=None,
         enc_hidden_states=None,
         past_key_values=None,
         only_encoder=False):
-
-        provided_hidden = (enc_hidden_states is not None)
 
         if enc_hidden_states is None:
             enc_outputs = self.encoder(
@@ -76,8 +72,6 @@ class EncDecModel(nn.Module):
         if only_encoder:
             outputs = {
                 "encoder_last_hidden_state": enc_hidden_states,
-                "encoder_hidden_states": enc_outputs["hidden_states"],
-                "encoder_attentions": enc_outputs["attentions"],
             }
 
             return outputs
@@ -101,12 +95,9 @@ class EncDecModel(nn.Module):
 
         outputs = {
             "lm_logits": lm_logits,
-            "last_hidden_state": dec_outputs["last_hidden_state"],
+            "enc_last_hidden_state": enc_hidden_states,
+            "dec_last_hidden_state": dec_outputs["last_hidden_state"],
             "past_key_values": dec_outputs["past_key_values"],
-            "encoder_last_hidden_state": enc_hidden_states,
-            "encoder_attentions": enc_outputs["attentions"] if not provided_hidden else None,
-            "decoder_self_attentions": dec_outputs["attentions"],
-            "decoder_cross_attentions": dec_outputs["cross_attentions"]
         }
 
         return outputs
