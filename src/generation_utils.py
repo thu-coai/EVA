@@ -290,11 +290,12 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EncDecTokenize
     
     unfinished_sents = enc_input_ids.new(enc_input_ids.size(0)).fill_(1)
     output_ids = enc_input_ids.new_zeros([enc_input_ids.size(0), 0]) # not include the prompt
-    output_probs = torch.zeros(batch_size, 1).to(device)
     prob_idx = torch.arange(batch_size)
     past_key_values = None
     
     gen_len = 0
+    # construct antonym dict
+    antonym_dict = construct_antonym_dict(args)
     while gen_len < target_length:
         if unfinished_sents.max() == 0:
             tokens_to_add = tokenizer.sep_id * (1 - unfinished_sents)
@@ -310,11 +311,6 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EncDecTokenize
             )
             past_key_values = dec_outputs['past_key_values']
             lm_logits = dec_outputs["lm_logits"]
-            
-            gathered_lm_logits = [torch.zeros_like(lm_logits).to(device) for _ in range(mpu.get_model_parallel_world_size())]
-            torch.distributed.all_gather(gathered_lm_logits, lm_logits.data, mpu.get_model_parallel_group())
-            lm_logits = torch.cat(gathered_lm_logits, dim=-1)
-
             logits = lm_logits[:, -1, :] / args.temperature
 
             prev_output_tokens = torch.cat([full_context, output_ids], dim=-1)
@@ -332,17 +328,15 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EncDecTokenize
                 repetition_penalty=args.repetition_penalty,
                 batch_size=batch_size,
                 num_beams=1,
-                antonym_dict=None
+                antonym_dict=antonym_dict
             )
 
             logits = top_k_logits(logits, top_k=args.top_k, top_p=args.top_p)
-            probs = F.softmax(logits, dim=-1)
+            # next_token = torch.argmax(logits, dim=-1)
+            probs = F.softmax(logits.float(), dim=-1)
             next_token = torch.multinomial(probs, num_samples=1).squeeze(1)
 
-            next_prob = probs[prob_idx, next_token]
             tokens_to_add = next_token * unfinished_sents + tokenizer.sep_id * (1 - unfinished_sents)
-            probs_to_add = next_prob * unfinished_sents
-            output_probs = torch.cat([output_probs, probs_to_add.unsqueeze(-1)], dim=-1)
             
             dec_input_ids = tokens_to_add.unsqueeze(-1)
             output_ids = torch.cat([output_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
