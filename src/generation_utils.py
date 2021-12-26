@@ -123,8 +123,9 @@ def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_siz
             ngram_words = ''.join(prev_input_words[hypo_idx][cur_len-prefix_len:])
             generated_ngram_words = generated_ngrams[hypo_idx].get(ngram_words, [])
             generated_ngram_idx += tokenizer.convert_tokens_to_ids(generated_ngram_words)
-        if prev_input_words[hypo_idx][-1] in ['，', ',']:
+        if prev_input_words[hypo_idx][-1] in ['，', ',', '。']:
             generated_ngram_idx.append(tokenizer.convert_token_to_id('但'))
+            generated_ngram_idx.append(tokenizer.convert_token_to_id('不过'))
         return generated_ngram_idx
 
     banned_tokens = [_get_generated_ngrams(hypo_idx) for hypo_idx in range(num_hypos)]
@@ -276,8 +277,9 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EncDecTokenize
     enc_outputs = model(
         enc_input_ids=enc_input_ids,
         enc_attention_mask=enc_attention_mask,
+        only_encoder=True
     )
-    enc_hidden_states = enc_outputs["enc_last_hidden_state"]
+    enc_hidden_states = enc_outputs["encoder_last_hidden_state"]
     
     # for generating responses
     # we only use the <go> token, so truncate other tokens
@@ -299,7 +301,7 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EncDecTokenize
             output_ids = torch.cat([output_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
         
         else:
-            dec_outputs, lm_logits = model(
+            dec_outputs = model(
                 dec_input_ids=dec_input_ids,
                 dec_attention_mask=dec_attention_mask,
                 cross_attention_mask=cross_attention_mask,
@@ -307,6 +309,7 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EncDecTokenize
                 past_key_values=past_key_values,
             )
             past_key_values = dec_outputs['past_key_values']
+            lm_logits = dec_outputs["lm_logits"]
             
             gathered_lm_logits = [torch.zeros_like(lm_logits).to(device) for _ in range(mpu.get_model_parallel_world_size())]
             torch.distributed.all_gather(gathered_lm_logits, lm_logits.data, mpu.get_model_parallel_group())

@@ -632,7 +632,6 @@ class ParallelTransformer(nn.Module):
     def forward(
         self,
         input_ids=None,
-        position_ids=None,
         role_ids=None,
         attention_mask=None,
         cross_attention_mask=None,

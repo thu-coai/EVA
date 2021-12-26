@@ -8,7 +8,8 @@ MP_SIZE=1
 NUM_GPUS_PER_WORKER=1
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_attn_scale.json"
-CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/new_data_scale_1103/120000"
+# CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/new_data_scale_1103/120000"
+CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/no_weibo_post_1212_5/"
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
 RULE_PATH="${WORKING_DIR}/rules"
