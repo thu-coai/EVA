@@ -15,11 +15,11 @@ CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_attn_scale.json"
 CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/checkpoints/new_data_scale_1103_change_iter"
 # CKPT_PATH="${WORKING_DIR}/checkpoints/depth-12-48-8-26"
 
-LR=${2-0.001}
+LR=${2-0.0001}
 WM=${3-0.01}
 GRAD_ACC=${4-1}
 
-SAVE_PATH="${WORKING_DIR}/results/test_eva_finetune_wm_0.01_2/"
+SAVE_PATH="${WORKING_DIR}/results/test_eva_finetune_wm_0.01_2_param/"
 # SAVE_PATH="${WORKING_DIR}/results/test/"
 LOG_FILE="${SAVE_PATH}/log.txt"
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
@@ -27,7 +27,7 @@ TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
 
 BATCH_SIZE=32
 TRAIN_ITER=-1
-EPOCHS=3
+EPOCHS=5
 
 ENC_LEN=128
 DEC_LEN=128

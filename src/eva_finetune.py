@@ -331,9 +331,14 @@ def train(args, tokenizer, model, optimizer, lr_scheduler, train_dataset, train_
             # Evaluation
             if args.eval_interval and global_step % args.eval_interval == 0 and step % args.gradient_accumulation_steps == 0 and args.do_valid:
                 prefix = 'iteration {} | '.format(global_step)
-                eval_loss, _, _ = evaluate(args, tokenizer, dev_dataset, dev_dataloader, model, device, mode="dev")
+                eval_loss, metric_res, _ = evaluate(args, tokenizer, dev_dataset, dev_dataloader, model, device, mode="dev")
                 model.train()
-                log_string = prefix + " eval_loss: " + str(eval_loss)
+                if len(metric_res) > 1:
+                    log_string = prefix
+                    for key, value in metric_res.items():
+                        log_string += " {}: {:.5} | ".format(key, value)
+                else:
+                    log_string = prefix + " eval_loss: " + str(eval_loss)
                 print_rank_0(log_string)
                 save_rank_0(args, log_string)
 
@@ -390,6 +395,7 @@ def evaluate(args, tokenizer, eval_dataset, eval_data_loader, model, device, mod
         loss_res /= step
 
         if args.eval_generation:
+            assert mode != "dev", "Generation while training is currrenty not supported"
             generation_res = []
             for e, (model_batch, no_model_batch) in enumerate(tqdm(eval_data_loader, desc="Evaluating")):
                 for k in model_batch:
