@@ -9,7 +9,8 @@ NUM_GPUS_PER_WORKER=1
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_attn_scale.json"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/new_data_scale_1103/120000"
-CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/no_weibo_post_1212_5/"
+# CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/no_weibo_post_1212_5/"
+CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva-origin/results/test_eva_finetune_wm_0.01_2"
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
 RULE_PATH="${WORKING_DIR}/rules"
@@ -40,6 +41,7 @@ OPTS+=" --rule-path ${RULE_PATH}"
 OPTS+=" --fp16"
 OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${DS_CONFIG}"
+OPTS+=" --train-ratio 0.1"
 
 CMD="python3 -m torch.distributed.launch --master_port 1234 --nproc_per_node ${NUM_GPUS_PER_WORKER} ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
 

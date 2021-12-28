@@ -58,10 +58,9 @@ def add_training_args(parser: argparse.ArgumentParser):
 
     group.add_argument('--train-ratio', type=float, default=1)
     group.add_argument('--valid-ratio', type=float, default=1)
-    group.add_argument('--eval-ratio', type=float, default=1)
+    group.add_argument('--test-ratio', type=float, default=1)
 
-    group.add_argument('--batch-size', type=int, default=4,
-                       help='Data Loader batch size')
+    group.add_argument('--batch-size', type=int, default=4,help='Data Loader batch size')
     group.add_argument('--gradient-accumulation-steps', type=int, default=1)
     group.add_argument('--train-iters', type=int, default=-1)
     group.add_argument('--epochs', type=int, default=3)
@@ -142,6 +141,7 @@ def add_evaluation_args(parser: argparse.ArgumentParser):
                        help='Data Loader batch size for evaluation datasets.'
                        'Defaults to `--batch-size`')
     group.add_argument('--eval-interval', type=int, default=10)
+    group.add_argument('--eval-generation', action="store_true")
 
     return parser
 

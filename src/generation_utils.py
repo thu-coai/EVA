@@ -64,6 +64,8 @@ class BeamHypotheses(object):
 
 
 def construct_antonym_dict(args):
+    if args.rule_path is None:
+        return None
     with open(os.path.join(args.rule_path, './antonym/antonym.txt'), 'r') as f:
         data = f.read().split("\n")
     data = [eval(item) for item in data if item]
@@ -76,6 +78,8 @@ def construct_antonym_dict(args):
 
 
 def calc_banned_antonym_words_ids(input_tokens, tokenizer, antonym_dict):
+    if antonym_dict is None:
+        return []
     antonym_words = [set()] * len(input_tokens)
     # only consider tokens occurring in current sentence
     for idx, tokens in enumerate(input_tokens):

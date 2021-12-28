@@ -39,8 +39,10 @@ import deepspeed
 from apex.optimizers import FusedAdam as Adam
 
 from generation_metrics import Metric
+from generation_utils import generate_beam, generate_no_beam
 
 from eva_datasets import EVADataset
+from tqdm import tqdm
 
 import signal
 signal.signal(signal.SIGCHLD, signal.SIG_IGN)
@@ -148,10 +150,12 @@ def get_learning_rate_scheduler(optimizer, args):
     return lr_scheduler
 
 
-def setup_model_and_optimizer(args, model_config, ds_config):
+def setup_model_and_optimizer(args, model_config, ds_config, do_train=True):
     """Setup model and optimizer."""
 
     model = get_model(args, model_config)
+    optimizer, lr_scheduler = None, None
+    # if do_train:
     optimizer = get_optimizer(model, args)
     lr_scheduler = get_learning_rate_scheduler(optimizer, args)
 
@@ -169,7 +173,7 @@ def setup_model_and_optimizer(args, model_config, ds_config):
         )
 
     if args.load is not None:
-        args.iteration = load_checkpoint(model, optimizer, lr_scheduler, args)
+        args.iteration = load_checkpoint(args, model, optimizer, lr_scheduler)
     else:
         args.iteration = 0
 
@@ -220,11 +224,6 @@ def load_data(args, data_type, tokenizer, ratio=1, drop_last=True):
 
 
 def forward_step(args, model_batch, no_model_batch, model, device, keep_enc_hidden=False):
-    for k in model_batch:
-        model_batch[k] = model_batch[k].to(device)
-    for k in no_model_batch:
-        no_model_batch[k] = no_model_batch[k].to(device)
-
     if keep_enc_hidden:
         enc_outputs = model(**model_batch, only_encoder=True)
         enc_hidden_states = enc_outputs["encoder_last_hidden_state"]
@@ -289,6 +288,10 @@ def train(args, tokenizer, model, optimizer, lr_scheduler, train_dataset, train_
     for e in range(args.epochs):
         model.train()
         for model_batch, no_model_batch in train_dataloader:
+            for k in model_batch:
+                model_batch[k] = model_batch[k].to(device)
+            for k in no_model_batch:
+                no_model_batch[k] = no_model_batch[k].to(device)
             forw_out = forward_step(args, model_batch, no_model_batch, model, device)
             loss = forw_out["loss"]
             
@@ -328,7 +331,7 @@ def train(args, tokenizer, model, optimizer, lr_scheduler, train_dataset, train_
             # Evaluation
             if args.eval_interval and global_step % args.eval_interval == 0 and step % args.gradient_accumulation_steps == 0 and args.do_valid:
                 prefix = 'iteration {} | '.format(global_step)
-                eval_loss, acc = evaluate(args, tokenizer, dev_dataset, dev_dataloader, model, device, mode="dev")
+                eval_loss, _, _ = evaluate(args, tokenizer, dev_dataset, dev_dataloader, model, device, mode="dev")
                 model.train()
                 log_string = prefix + " eval_loss: " + str(eval_loss)
                 print_rank_0(log_string)
@@ -364,20 +367,80 @@ def evaluate(args, tokenizer, eval_dataset, eval_data_loader, model, device, mod
 
     model.eval()
 
-    total_loss = 0.0
+    metric = Metric(tokenizer)
+
+    loss_res = None
+    generation_res = None
+    metric_res = {}
+    
     step = 0
 
     with torch.no_grad():
+        loss_res = 0.0
         for model_batch, no_model_batch in eval_data_loader:
+            for k in model_batch:
+                model_batch[k] = model_batch[k].to(device)
+            for k in no_model_batch:
+                no_model_batch[k] = no_model_batch[k].to(device)
             forw_out = forward_step(args, model_batch, no_model_batch, model, device, keep_enc_hidden=True)
             loss = forw_out["loss"].item() if "loss" in forw_out else 0
-            total_loss += loss
-
+            loss_res += loss
             step += 1
 
-    total_loss /= step
+        loss_res /= step
 
-    return total_loss, None
+        if args.eval_generation:
+            generation_res = []
+            for e, (model_batch, no_model_batch) in enumerate(tqdm(eval_data_loader, desc="Evaluating")):
+                for k in model_batch:
+                    model_batch[k] = model_batch[k].to(device)
+                for k in no_model_batch:
+                    no_model_batch[k] = no_model_batch[k].to(device)
+                if args.num_beams == 1:
+                    generation_str_list, generation_id_list = generate_no_beam(model_batch, model_batch["enc_input_ids"], model, tokenizer, args, device)
+                else:
+                    generation_str_list, generation_id_list = generate_beam(model_batch, model_batch["enc_input_ids"], model, tokenizer, args, device)
+
+                output_ids = [x + [tokenizer.sep_id] + (args.max_length - len(x) - 1) * [tokenizer.pad_id] for x in generation_id_list]
+                output_ids = torch.tensor(output_ids).to(device)
+
+                tmp_labels = [torch.zeros_like(no_model_batch["labels"]).to(device) for _ in range(mpu.get_data_parallel_world_size())]
+                torch.distributed.all_gather(tmp_labels, no_model_batch["labels"].data, group=mpu.get_data_parallel_group())
+
+                tmp_output_ids = [torch.zeros_like(output_ids).to(device) for _ in range(mpu.get_data_parallel_world_size())]
+                torch.distributed.all_gather(tmp_output_ids, output_ids.data, group=mpu.get_data_parallel_group())
+                
+                tmp_contexts = [torch.zeros_like(model_batch["enc_input_ids"]).to(device) for _ in range(mpu.get_data_parallel_world_size())]
+                torch.distributed.all_gather(tmp_contexts, model_batch["enc_input_ids"].data, group=mpu.get_data_parallel_group())
+                
+                context_token_ids = sum([e.cpu().tolist() for e in tmp_contexts], [])
+                context_token_ids = [e[:e.index(tokenizer.pad_id)] if tokenizer.pad_id in e else e for e in context_token_ids]
+        
+                label_token_ids = sum([e.cpu().tolist() for e in tmp_labels], [])
+                label_token_ids = [e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e for e in label_token_ids]
+
+                generation_token_ids = sum([e.cpu().tolist() for e in tmp_output_ids], [])
+                generation_token_ids = [e[:e.index(tokenizer.sep_id)] if tokenizer.sep_id in e else e for e in generation_token_ids]
+                for lab, gen in zip(label_token_ids, generation_token_ids):
+                    #metric.forword([list(map(str, lab))], list(map(str, gen)))
+                    metric.forstr([tokenizer.decode(lab)], tokenizer.decode(gen))
+                
+                for ctx, lab, gen in zip(context_token_ids, label_token_ids, generation_token_ids):
+                    generation_res.append({
+                        'context': tokenizer.decode(ctx),
+                        'response': tokenizer.decode(lab),
+                        'generation': tokenizer.decode(gen),
+                    })
+                    if e == 0:
+                        print_rank_0(f'****** context: {tokenizer.decode(ctx)}\n'
+                                    f'****** response: {tokenizer.decode(lab)}\n'
+                                    f'****** generation: {tokenizer.decode(gen)}\n')
+
+            metric_res, *_ = metric.close()
+
+        metric_res["loss"] = loss_res
+
+    return loss_res, metric_res, generation_res
 
 
 def main():
@@ -433,17 +496,20 @@ def main():
     save_rank_0(args, log_string)
 
     # Model, optimizer, and learning rate.
-    model, optimizer, lr_scheduler = setup_model_and_optimizer(args, config, ds_config)
+    model, optimizer, lr_scheduler = setup_model_and_optimizer(args, config, ds_config, args.do_train)
         
     if args.do_train:
         train(args, tokenizer, model, optimizer, lr_scheduler, train_dataset, train_dataloader, dev_dataset, dev_dataloader, device)
 
     if args.do_eval:
-        eval_dataloader, eval_dataset, _ = load_data(args, 'valid', tokenizer, ratio=args.test_ratio)
-
-        loss, acc = evaluate(args, tokenizer, eval_dataset, eval_dataloader, model, device, mode="test")
-
-        log_string = "Eval result: loss: {:.6} | acc(mrr): {}".format(loss, acc)
+        eval_dataloader, eval_dataset, _ = load_data(args, 'test', tokenizer, ratio=args.test_ratio)
+        loss, metrics, generation = evaluate(args, tokenizer, eval_dataset, eval_dataloader, model, device, mode="test")
+        log_string = "Eval result: loss: {:.6}".format(loss)
+        if dist.get_rank() == 0:
+            with open(os.path.join(args.save, "metrics.json"), "w") as f:
+                json.dump(metrics, f, ensure_ascii=False, indent=2)
+            with open(os.path.join(args.save, "generation.json"), "w") as f:
+                json.dump(generation, f, ensure_ascii=False, indent=2)
         print_rank_0(log_string)
         save_rank_0(args, log_string)
 
