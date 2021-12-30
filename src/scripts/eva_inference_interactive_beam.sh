@@ -7,7 +7,7 @@ MP_SIZE=1
 
 NUM_GPUS_PER_WORKER=1
 
-CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_attn_scale.json"
+CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/new_data_scale_1103/120000"
 # CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/results/no_weibo_post_1212_5/"
 CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva-origin/results/test_eva_finetune_wm_0.01_2"
