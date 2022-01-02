@@ -26,12 +26,8 @@ def add_model_config_args(parser: argparse.ArgumentParser):
 
     group = parser.add_argument_group('model', 'model configuration')
 
-    group.add_argument('--model-config', type=str)
-    group.add_argument('--model-parallel-size', type=int, default=1)
-    group.add_argument('--cpu-optimizer', action='store_true',
-                                   help='Run optimizer on CPU')
-    group.add_argument('--cpu_torch_adam', action='store_true',
-                                   help='Use Torch Adam as optimizer on CPU.')
+    group.add_argument('--model-config', type=str, help="The path to the model configuration file.")
+    group.add_argument('--model-parallel-size', type=int, default=1, help="The segment number of model paralism")
 
     return parser
 
@@ -107,15 +103,11 @@ def add_training_args(parser: argparse.ArgumentParser):
     group.add_argument('--no_load_strict', action="store_true")
     group.add_argument('--no-load-optim', action='store_true',
                        help='Do not load optimizer when loading checkpoint.')
-    group.add_argument('--no-load-rng', action='store_true',
-                       help='Do not load rng state when loading checkpoint.')
 
     group.add_argument('--save', type=str, default=None)
     group.add_argument('--save-interval', type=int, default=10)
     group.add_argument('--no-save-optim', action='store_true',
                        help='Do not save current optimizer.')
-    group.add_argument('--no-save-rng', action='store_true',
-                    help='Do not save current rng state.')
 
     # logging
     group.add_argument('--log-file', type=str, default=None)
