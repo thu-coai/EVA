@@ -175,6 +175,12 @@ def generate_samples(model, tokenizer: EncDecTokenizer, args, device):
                 # set_random_seed(args.seed) # reset rng
                 full_context_list = []
                 continue
+            if input_text == "seed":
+                seed = int(input("Seed >>> "))
+                print("Clear Dialog")
+                set_random_seed(seed)
+                full_context_list = []
+                continue
             else:
                 full_context_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id])
                 full_context = [x for y in full_context_list for x in y]

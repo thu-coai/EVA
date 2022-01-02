@@ -76,7 +76,7 @@ def add_training_args(parser: argparse.ArgumentParser):
     group.add_argument('--clip-grad', type=float, default=1.0,
                        help='gradient clipping')
 
-    group.add_argument('--seed', type=int, default=1234,
+    group.add_argument('--seed', type=int, default=422,
                        help='random seed')
     
     # Batch prodecuer arguments

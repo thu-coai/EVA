@@ -1,6 +1,6 @@
 #! /bin/bash
 
-WORKING_DIR=/dataset/f1d6ea5b/gyx-eva/eva-origin
+WORKING_DIR=/root/guyuxian/eva-origin/
 
 # Change for multinode config
 MP_SIZE=1
@@ -11,9 +11,7 @@ NUM_GPUS_PER_WORKER=8
 DATA_PATH="/dataset/f1d6ea5b/gyx/data/duconv"
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
-# CKPT_PATH="${WORKING_DIR}/checkpoints/depth-12-48/"
-CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva-origin/results/test_eva_finetune_wm_0.01_2"
-# CKPT_PATH="${WORKING_DIR}/checkpoints/depth-12-48-8-26"
+CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
 
 LR=${2-0.001}
 WM=${3-0.01}

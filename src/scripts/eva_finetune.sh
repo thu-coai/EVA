@@ -1,26 +1,22 @@
 #! /bin/bash
 
-WORKING_DIR=/dataset/f1d6ea5b/gyx-eva/eva-origin
+WORKING_DIR=/root/guyuxian/eva-origin/
 
 # Change for multinode config
 MP_SIZE=1
 
-NUM_WORKERS=1
 NUM_GPUS_PER_WORKER=8
 
 DATA_PATH="/dataset/f1d6ea5b/gyx/data/duconv"
 
-CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva_model_config_attn_scale.json"
-# CKPT_PATH="${WORKING_DIR}/checkpoints/depth-12-48/"
-CKPT_PATH="/dataset/f1d6ea5b/gyx-eva/eva2/checkpoints/new_data_scale_1103_change_iter"
-# CKPT_PATH="${WORKING_DIR}/checkpoints/depth-12-48-8-26"
+CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
+CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
 
 LR=${2-0.0001}
 WM=${3-0.01}
 GRAD_ACC=${4-1}
 
 SAVE_PATH="${WORKING_DIR}/results/test_eva_finetune_wm_0.01_2_param/"
-# SAVE_PATH="${WORKING_DIR}/results/test/"
 LOG_FILE="${SAVE_PATH}/log.txt"
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
