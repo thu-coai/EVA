@@ -51,7 +51,7 @@ docker pull gyxthu17/eva:1.4
 因为上述环境已经在 docker 中预装，您不需要再设置任何环境变量了。为了运行代码，您可能需要将此仓库挂在到 docker 中的目录，例如，`/mnt` 目录。为此，您可以运行如下代码：
 
 ```[bash]
-docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.2 /bin/bash
+docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.4 /bin/bash
 ```
 
 ### 3.2 运行代码
@@ -125,7 +125,7 @@ Sys >>> 拜～
 
 + 模型下载链接
 + finetune 代码整理与开源
-+ 数据处理代码开源
++ 预训练数据处理代码开源
 + 开源小规模模型
 
 ## 7 引用

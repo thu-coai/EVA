@@ -1,9 +1,11 @@
-""" enc_dec model configuration """
+# coding=utf-8
+
+""" Encoder-Decoder model configuration """
 
 import json
 import os
 import copy
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Union
 
 class EncDecConfig(object):
     def __init__(

@@ -1,31 +1,9 @@
 # coding=utf-8
-# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-
-# Parts of the code here are adapted from PyTorch
-# repo: https://github.com/pytorch/pytorch
-
-
-import math
 
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.parameter import Parameter
-
-from apex.normalization.fused_layer_norm import FusedLayerNorm as LayerNorm
 
 from .initialize import get_model_parallel_rank
 from .initialize import get_model_parallel_world_size
@@ -33,9 +11,7 @@ from .mappings import copy_to_model_parallel_region
 from .mappings import gather_from_model_parallel_region
 from .mappings import reduce_from_model_parallel_region
 from .mappings import scatter_to_model_parallel_region
-from .random import get_cuda_rng_tracker
 from .utils import divide
-from .utils import split_tensor_along_last_dim
 from .utils import VocabUtility
 
 

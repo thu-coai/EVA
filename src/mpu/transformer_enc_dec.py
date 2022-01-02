@@ -1,3 +1,7 @@
+# coding=utf-8
+
+"""Encoder-Decoder Model"""
+
 import math
 from deepspeed.runtime.activation_checkpointing.checkpointing import set_num_layers
 

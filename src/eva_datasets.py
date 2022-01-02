@@ -1,3 +1,7 @@
+# coding=utf-8
+
+"""Datasets of EVA"""
+
 import os
 import pickle
 import torch
