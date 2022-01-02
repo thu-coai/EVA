@@ -122,11 +122,7 @@ def get_optimizer(model, args):
 def get_learning_rate_scheduler(optimizer, args):
     """Build the learning rate scheduler."""
 
-    # Add linear learning rate scheduler.
-    if args.lr_decay_iters is not None:
-        num_iters = args.lr_decay_iters
-    else:
-        num_iters = args.train_iters
+    num_iters = args.train_iters
     num_iters = max(1, num_iters)
     init_step = -1
     warmup_iter = args.warmup * num_iters
