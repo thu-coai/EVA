@@ -3,20 +3,14 @@
 """Encoder-Decoder Model"""
 
 import math
-from deepspeed.runtime.activation_checkpointing.checkpointing import set_num_layers
 
 import torch
 import torch.nn as nn
-import torch.nn.init as init
-import torch.nn.functional as F
-# from apex.normalization.fused_layer_norm import FusedLayerNorm as LayerNorm
+import deepspeed
 
 from .initialize import get_model_parallel_world_size
 from .layers import ColumnParallelLinear
 from .layers import RowParallelLinear
-from .mappings import gather_from_model_parallel_region
-
-import deepspeed
 
 from .random import checkpoint
 from .random import get_cuda_rng_tracker
@@ -24,9 +18,10 @@ from .random import get_cuda_rng_tracker
 from .utils import divide
 from .utils import split_tensor_along_last_dim
 
-from model.configuration_eva import EVAConfig
 from .layers import VocabParallelEmbedding
-from typing import Callable, Optional, List
+
+from typing import Callable, Optional
+from model.configuration_eva import EVAConfig
 
 
 class LayerNorm(nn.Module):

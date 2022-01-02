@@ -6,8 +6,6 @@ import os
 import random
 import numpy as np
 import torch
-
-from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 import mpu
 import deepspeed
 

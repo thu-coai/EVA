@@ -7,6 +7,7 @@ import os
 import copy
 from typing import Any, Dict, Union
 
+
 class EVAConfig(object):
     def __init__(
         self,

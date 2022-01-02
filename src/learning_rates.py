@@ -4,6 +4,7 @@ import torch
 from torch.optim.lr_scheduler import _LRScheduler
 import math
 
+
 class AnnealingLR(_LRScheduler):
     """Anneals the learning rate from start to zero along a cosine curve."""
 
