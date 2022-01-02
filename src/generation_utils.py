@@ -247,9 +247,6 @@ def postprocess_next_token_scores(
         num_batch_hypotheses = batch_size * num_beams
         # from fairseq: https://github.com/pytorch/fairseq/blob/a07cb6f40480928c9e0548b737aadd36ee66ac76/fairseq/sequence_generator.py#L345
         banned_batch_tokens = calc_banned_ngram_tokens(input_ids, num_batch_hypotheses, no_repeat_ngram_size, tokenizer=tokenizer)
-        # from IPython import embed
-
-        # embed()
         for i, banned_tokens in enumerate(banned_batch_tokens):
             scores[i, banned_tokens] = -10000
 

@@ -1,145 +1,128 @@
-# coding=utf-8
-
 import sys
 import os
 import torch
 import copy
+import tqdm
 
-checkpoint = sys.argv[1]
-target_mp = int(sys.argv[2])
 
-assert os.path.isdir(checkpoint)
-with open(os.path.join(checkpoint, 'latest_checkpointed_iteration.txt')) as fin:
-    iteration = int(fin.read().strip())
-
-checkpoint = os.path.join(checkpoint, str(iteration))
-
-filenames = os.listdir(checkpoint)
-filenames = sorted(filenames, 
-        key=lambda x: int(x.split('_')[2]))
-filenames = [os.path.join(checkpoint, x) for x in filenames]
-print(filenames)
-
-if target_mp == len(filenames):
-    print("MP size keeps the same.")
-    exit(0)
-
-if sys.argv[1][-1] == '/':
-    new_checkpoint = sys.argv[1][:-1] + '_MP' + sys.argv[2]
-else:
-    new_checkpoint = sys.argv[1] + '_MP' + sys.argv[2]
-if not os.path.exists(new_checkpoint):
-    os.mkdir(new_checkpoint)
-with open(os.path.join(new_checkpoint, 'latest_checkpointed_iteration.txt'), 'w') as fout:
-    fout.write("{}\n".format(iteration))
-new_checkpoint = os.path.join(new_checkpoint, str(iteration))
-if not os.path.exists(new_checkpoint):
-    os.mkdir(new_checkpoint)
-
-preserve_keys = [
-    "lr_scheduler",
-    "skipped_steps",
-    "global_steps",
-    "global_samples",
-    "dp_world_size",
-    "iteration",
-    "np_rng_state",
-    "random_rng_state",
-    "torch_rng_state",
-    "cuda_rng_state",
-    "rng_tracker_states",
+def merge(model_parts):
+    print("Merging Model")
+    if len(model_parts) == 1:
+        return model_parts[0]
     
-]
+    new_model = {}
+    for k, v in model_parts.items():
+        assert len(v.size()) < 3
+        if len(v.shape) == 2 and "role_embeds.weight" not in k:
+            if 'project.weight' in k:
+                part = v.shape[0] // 3
+                new_model[k] = torch.cat([model[k][i*part:(i+1)*part, :] for model in model_parts for i in range(3)], dim=0)
+            elif 'project_q.weight' in k:
+                new_model[k] = torch.cat([model[k] for model in model_parts], dim=0)
+            elif 'project_kv.weight' in k:
+                part = v.shape[0] // 2
+                new_model[k] = torch.cat([model[k][i*part:(i+1)*part, :] for model in model_parts for i in range(2)], dim=0)
+            elif any([x in k for x in ['word_embeds.weight', 'dense_relu_dense.wi_1.weight', 'dense_relu_dense.wi_0.weight', 'lm_head.weight']]):
+                new_model[k] = torch.cat([model[k] for model in model_parts], dim=0)
+            else:
+                new_model[k] = torch.cat([model[k] for model in model_parts], dim=1)
+        else:
+            new_model[k] = v
+    
+    return new_model
 
-if target_mp < len(filenames):
-    print("Decrease MP size.")
-    assert len(filenames) % target_mp == 0
-    ratio = len(filenames) // target_mp
-    for i in range(target_mp):
-        start = ratio * i
-        end = ratio * (i+1)
-        d = torch.load(filenames[start], 
-                map_location='cpu')
-        for k in d.keys():
-            if k !='module':
-                if k in preserve_keys:
-                    pass
-                elif k == "mp_world_size":
-                    d[k] = target_mp
-                else:
-                    d[k] = None
-        for j in range(start+1, end):
-            d_new = torch.load(filenames[j], 
-                    map_location='cpu')
-            for k, v in d_new['module'].items():
-                assert len(v.shape) < 3
-                if len(v.shape) == 2 and 'position' not in k:
-                    if 'query' in k:
-                        size_1 = d['module'][k].shape[0] // 3
-                        size_2 = v.shape[0] // 3
-                        target = d['module'][k]
-                        d['module'][k] = torch.cat([
-                            target[:size_1, :], v[:size_2, :],
-                            target[size_1:size_1*2, :], v[size_2:size_2*2, :],
-                            target[size_1*2:, :], v[size_2*2:, :]], 0)
-                    elif 'word' in k  or 'h_to_4h' in k:
-                        d['module'][k] = torch.cat([d['module'][k], v], 0)
-                    else:
-                        d['module'][k] = torch.cat([d['module'][k], v], 1)
-                if len(v.shape) == 1 and 'query_key_value' in k:
-                    size_1 = d['module'][k].shape[0] // 3
-                    size_2 = v.shape[0] // 3
-                    target = d['module'][k]
-                    d['module'][k] = torch.cat([
-                        target[:size_1], v[:size_2],
-                        target[size_1:size_1*2], v[size_2:size_2*2],
-                        target[size_1*2:], v[size_2*2:]], 0)
 
-                if len(v.shape) == 1 and 'dense_h_to_4h' in k:
-                    d['module'][k] = torch.cat([d['module'][k], v], 0)
-        filename = os.path.join(new_checkpoint, "mp_rank_{:02d}_model_states.pt".format(i))
-        torch.save(d, filename)
+def split(model, mp):
+    print("Spliting model")
+    new_model_parts = []
+    if mp == 1:
+        new_model_parts.append(model)
+        return new_model_parts
 
-if target_mp > len(filenames):
-    print("Increase MP size.")
-    assert target_mp % len(filenames) == 0
-    ratio = target_mp // len(filenames)
-    for i in range(len(filenames)):
-        start = ratio * i
-        end = ratio * (i+1)
-        d = torch.load(filenames[i], 
-                map_location='cpu')
-        for j in range(start, end):
-            d_new = {}
-            shift = j - start
-            for k, v in d.items():
-                if k != 'module':
-                    if k in preserve_keys:
-                        d_new[k] = copy.deepcopy(d[k])
-                    elif k == "mp_world_size":
-                        d_new[k] = target_mp
-                    else:
-                        d_new[k] = None
-            d_new['module'] = {}
-            for k, v in d['module'].items():
-                assert len(v.shape) < 3
-                if len(v.shape) == 2 and 'position' not in k:
-                    if 'query_key_value' in k:
-                        part = v.shape[0] // ratio // 3
-                        d_new['module'][k] = torch.cat([v[shift*part:(shift+1)*part, :], v[(shift+ratio)*part:(shift+1+ratio)*part, :], v[(shift+2*ratio)*part:(shift+1+2*ratio)*part, :]], 0)
-                    elif 'word' in k or 'h_to_4h' in k:
-                        part = v.shape[0] // ratio
-                        d_new['module'][k] = v[shift*part:(shift+1)*part, :]
-                    else:
-                        part = v.shape[1] // ratio
-                        d_new['module'][k] = v[:, shift*part:(shift+1)*part]
-                # elif len(v.shape) == 1 and 'dense_h_to_4h' in k:
-                #     part = v.shape[0] // ratio
-                #     d_new['module'][k] = v[shift*part:(shift+1)*part]
-                # elif len(v.shape) == 1 and 'query_key_value' in k:
-                #     part = v.shape[0] // ratio // 3
-                #     d_new['module'][k] = torch.cat([v[shift*part:(shift+1)*part], v[(shift+ratio)*part:(shift+1+ratio)*part], v[(shift+2*ratio)*part:(shift+1+2*ratio)*part]], 0)
-                else:
-                    d_new['module'][k] = v
-            filename = os.path.join(new_checkpoint, "mp_rank_{:02d}_model_states.pt".format(j))
-            torch.save(d_new, filename)
+    for i in tqdm.tqdm(range(mp)):
+        new_model = {}
+        for k, v in model.items():
+            assert len(v.shape) < 3
+            if len(v.shape) == 2 and "role_embeds.weight" not in k:
+                if 'project.weight' in k:
+                    part = v.shape[0] // mp // 3
+                    new_model[k] = torch.cat([v[i*part:(i+1)*part, :], v[(i+mp)*part:(i+1+mp)*part, :], v[(i+2*mp)*part:(i+1+2*mp)*part, :]], 0)
+                elif 'project_q.weight' in k:
+                    part = v.shape[0] // mp
+                    new_model[k] = v[i*part:(i+1)*part, :]
+                elif 'project_kv.weight' in k:
+                    part = v.shape[0] // mp // 2
+                    new_model[k] = torch.cat([v[i*part:(i+1)*part, :], v[(i+mp)*part:(i+1+mp)*part, :]], 0)
+                elif any([x in k for x in ['word_embeds.weight', 'dense_relu_dense.wi_1.weight', 'dense_relu_dense.wi_0.weight', 'lm_head.weight']]):
+                    part = v.shape[0] // mp
+                    new_model[k] = v[i*part:(i+1)*part, :]
+                else: # o.weight
+                    part = v.shape[1] // mp
+                    new_model[k] = v[:, i*part:(i+1)*part]
+            else:
+                new_model[k] = v
+        
+        new_model_parts.append(new_model)
+    return new_model_parts
+
+
+def main():
+
+    preserve_keys = [
+        "lr_scheduler",
+        "skipped_steps",
+        "global_steps",
+        "global_samples",
+        "dp_world_size",
+        "iteration",
+        "np_rng_state",
+        "random_rng_state",
+        "torch_rng_state",
+        "cuda_rng_state",
+        "rng_tracker_states",
+        
+    ]
+
+    input_dir = sys.argv[1]
+    output_dir = sys.argv[2]
+    target_mp = int(sys.argv[3])
+    
+    with open(os.path.join(input_dir, "latest_checkpointed_iteration.txt")) as f:
+        iter = int(f.read())
+    
+    model_dir = os.path.join(input_dir, str(iter))
+    filenames = os.listdir(model_dir)
+    filenames = sorted(filenames, key=lambda x: int(x.split('_')[2]))
+    filenames = [os.path.join(model_dir, x) for x in filenames]
+    print("Model files:", filenames)
+
+    ckpt_parts = [torch.load(filename) for filename in filenames]
+    model_parts = [ckpt["module"] for ckpt in ckpt_parts]
+    new_model = merge(model_parts)
+    new_model_parts = split(new_model, target_mp)
+
+    assert len(new_model_parts) == target_mp
+
+    ckpt_new = {}
+    for k, v in ckpt_parts[0].items():
+        if k != 'module':
+            if k in preserve_keys:
+                ckpt_new[k] = copy.deepcopy(v)
+            elif k == "mp_world_size":
+                ckpt_new[k] = target_mp
+            else:
+                ckpt_new[k] = None
+        ckpt_new['module'] = {}
+
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(os.path.join(output_dir, str(iter)), exist_ok=True)
+    with open(os.path.join(output_dir, str(iter), "latest_checkpointed_iteration.txt"), "w") as f:
+        f.write(str(iter) + "\n")
+
+    for i, model_part in enumerate(new_model_parts):
+        ckpt_new['module'] = model_part
+        torch.save(ckpt_new, os.path.join(output_dir, str(iter), "mp_rank_0{}_model_states.pt".format(i)))
+
+
+if __name__ == "__main__":
+    main()

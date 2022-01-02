@@ -174,13 +174,7 @@ class Metric(object):
         """
         assert len(sentences) > 0
         assert n > 0
-
-        # if torch.distributed.get_rank() == 0:
-        #     print(sentences)
-
         words = [x for y in sentences for x in y] # flatten the sentences
-        # if torch.distributed.get_rank() == 0:
-        #     print("words", words)
         return self._get_ngrams(n, words, exclusive=exclusive)
 
     def f_r_p_rouge_n(self, evaluated_count, reference_count, overlapping_count):

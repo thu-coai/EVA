@@ -3,12 +3,12 @@
 WORKING_DIR=/root/guyuxian/eva-origin//
 
 # Change for multinode config
-MP_SIZE=1
+MP_SIZE=2
 
-NUM_GPUS_PER_WORKER=1
+NUM_GPUS_PER_WORKER=2
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
-CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
+CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0_MP2"
 
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
