@@ -17,8 +17,6 @@
 
 from .cross_entropy import vocab_parallel_cross_entropy
 
-from .data import broadcast_data
-
 from .grads import clip_grad_norm
 
 from .initialize import destroy_model_parallel
