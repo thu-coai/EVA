@@ -11,12 +11,12 @@ import torch.distributed as dist
 
 from torch.utils.data import DataLoader, SequentialSampler
 from arguments import get_args
-from tokenization_enc_dec import EncDecTokenizer
+from tokenization_eva import EVATokenizer
 
 from utils import save_checkpoint, load_checkpoint
 from utils import print_args, print_rank_0, save_rank_0
 from utils import set_random_seed, initialize_distributed, set_deepspeed_activation_checkpointing
-from model import EncDecModel, EncDecConfig, enc_dec_get_params_for_weight_decay_optimization
+from model import EVAModel, EVAConfig, enc_dec_get_params_for_weight_decay_optimization
 from samplers import DistributedBatchSampler, RandomSampler
 
 from fp16 import FP16_Module, FP16_Optimizer
@@ -42,7 +42,7 @@ def get_model(args, config):
 
     print_rank_0('building Enc-Dec model ...')
 
-    model = EncDecModel(
+    model = EVAModel(
         config,
         parallel_output=True,
         checkpoint_activations=args.checkpoint_activations,
@@ -323,7 +323,7 @@ def train(args, tokenizer, model, optimizer, lr_scheduler, train_dataset, train_
     return global_step
 
 
-def gen_metric(args, tokenizer: EncDecTokenizer, all_preds, all_labels):
+def gen_metric(args, tokenizer: EVATokenizer, all_preds, all_labels):
     print("Doing gen metric")
     metric = Metric(tokenizer)
     for l, p in zip(all_labels, all_preds):
@@ -433,7 +433,7 @@ def main():
     args = get_args()
 
     os.makedirs(args.save, exist_ok=True)
-    config = EncDecConfig.from_json_file(args.model_config)
+    config = EVAConfig.from_json_file(args.model_config)
 
     # Pytorch distributed.
     initialize_distributed(args)
@@ -454,7 +454,7 @@ def main():
     device = torch.cuda.current_device()
 
     # setup tokenizer
-    tokenizer = EncDecTokenizer(os.path.join(args.tokenizer_path, 'vocab.txt'))
+    tokenizer = EVATokenizer(os.path.join(args.tokenizer_path, 'vocab.txt'))
     config.vocab_size = tokenizer.vocab_size
 
     with open(args.deepspeed_config, "r") as f:

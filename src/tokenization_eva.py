@@ -79,7 +79,7 @@ class WordpieceTokenizer(object):
         return sub_tokens
 
 
-class EncDecTokenizer(object):
+class EVATokenizer(object):
 
     def __init__(self, vocab_file, max_len=None, max_sentinels=187):
         self.max_len = max_len if max_len is not None else int(1e12)

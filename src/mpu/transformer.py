@@ -24,7 +24,7 @@ from .random import get_cuda_rng_tracker
 from .utils import divide
 from .utils import split_tensor_along_last_dim
 
-from model.configuration_enc_dec import EncDecConfig
+from model.configuration_eva import EVAConfig
 from .layers import VocabParallelEmbedding
 from typing import Callable, Optional, List
 
@@ -92,7 +92,7 @@ def init_method_normal(std):
 
 class ParallelDenseReluDense(nn.Module):
     def __init__(self,
-                 config: EncDecConfig,
+                 config: EVAConfig,
                  init_method: Callable,
                  output_layer_init_method: Optional[Callable] = None):
         super(ParallelDenseReluDense, self).__init__()
@@ -140,7 +140,7 @@ class ParallelDenseReluDense(nn.Module):
 class ParallelAttention(nn.Module):
     def __init__(
         self,
-        config: EncDecConfig, 
+        config: EVAConfig, 
         init_method: Callable,
         is_decoder: bool = False,
         is_cross_attn: bool = False,
@@ -405,7 +405,7 @@ class ParallelAttention(nn.Module):
 class ParallelSelfAttention(nn.Module):
     def __init__(
         self,
-        config: EncDecConfig, 
+        config: EVAConfig, 
         init_method: Callable,
         is_decoder: bool = False,
         output_layer_init_method: Optional[Callable] = None,
@@ -445,7 +445,7 @@ class ParallelSelfAttention(nn.Module):
 class ParallelCrossAttention(nn.Module):
     def __init__(
         self,
-        config: EncDecConfig,
+        config: EVAConfig,
         init_method: Callable,
         is_decoder: bool = True,
         output_layer_init_method: Optional[Callable] = None):
@@ -489,7 +489,7 @@ class ParallelCrossAttention(nn.Module):
 class ParallelFF(nn.Module):
     def __init__(
         self,
-        config: EncDecConfig,
+        config: EVAConfig,
         init_method: Callable,
         output_layer_init_method: Callable = None):
         super(ParallelFF, self).__init__()
@@ -509,7 +509,7 @@ class ParallelFF(nn.Module):
 class ParallelBlock(nn.Module):
     def __init__(
         self, 
-        config: EncDecConfig,
+        config: EVAConfig,
         init_method: Callable,
         output_layer_init_method: Optional[Callable] = None,
         has_relative_attention_bias: bool = False, 
@@ -600,7 +600,7 @@ class ParallelBlock(nn.Module):
 
 
 class ParallelTransformer(nn.Module):
-    def __init__(self, config: EncDecConfig, word_embeds: VocabParallelEmbedding, role_embeds: nn.Embedding, is_decoder=False, checkpoint_activations=False, checkpoint_num_layers=1):
+    def __init__(self, config: EVAConfig, word_embeds: VocabParallelEmbedding, role_embeds: nn.Embedding, is_decoder=False, checkpoint_activations=False, checkpoint_num_layers=1):
         super(ParallelTransformer, self).__init__()
         
         self.word_embeds = word_embeds

@@ -7,11 +7,11 @@ import torch
 import torch.nn.functional as F
 from arguments import get_args
 from utils import load_checkpoint
-from tokenization_enc_dec import EncDecTokenizer
+from tokenization_eva import EVATokenizer
 import mpu
 import deepspeed
 import torch.distributed as dist
-from model import EncDecModel, EncDecConfig
+from model import EVAModel, EVAConfig
 from fp16 import FP16_Module
 
 from utils import print_rank_0, initialize_distributed, set_random_seed
@@ -24,10 +24,10 @@ def get_model(args, vocab_size):
     """Build the model."""
 
     print_rank_0('building Enc-Dec model ...')
-    config = EncDecConfig.from_json_file(args.model_config)
+    config = EVAConfig.from_json_file(args.model_config)
     config.vocab_size = vocab_size
     assert not args.checkpoint_activations
-    model = EncDecModel(
+    model = EVAModel(
         config,
         parallel_output=True,
         checkpoint_activations=False,
@@ -150,7 +150,7 @@ def get_inference_batch(
     return model_batch
 
 
-def generate_samples(model, tokenizer: EncDecTokenizer, args, device):
+def generate_samples(model, tokenizer: EVATokenizer, args, device):
     model.eval()
 
     with torch.no_grad():
@@ -213,7 +213,7 @@ def main():
     set_random_seed(args.seed)
 
     #get the tokenizer
-    tokenizer = EncDecTokenizer(os.path.join(args.tokenizer_path, 'vocab.txt'))
+    tokenizer = EVATokenizer(os.path.join(args.tokenizer_path, 'vocab.txt'))
 
     # Model, optimizer, and learning rate.
     model = setup_model(args, tokenizer.vocab_size)

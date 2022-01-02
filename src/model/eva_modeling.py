@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 import mpu
 
-from .configuration_enc_dec import EncDecConfig
+from .configuration_eva import EVAConfig
 
 
 def init_method_normal(std):
@@ -21,16 +21,16 @@ def init_method_normal(std):
     return init_
 
 
-class EncDecModel(nn.Module):
+class EVAModel(nn.Module):
     
     def __init__(
         self,
-        config: EncDecConfig,
+        config: EVAConfig,
         parallel_output=True,
         checkpoint_activations=False,
         checkpoint_num_layers=1):
         
-        super(EncDecModel, self).__init__()
+        super(EVAModel, self).__init__()
         if config.vocab_size is None:
             raise RuntimeError("Should set vocab size")
         self.enc_config = copy.deepcopy(config)
@@ -110,7 +110,7 @@ def enc_dec_get_params_for_weight_decay_optimization(module):
     weight_decay_params = {'params': []}
     no_weight_decay_params = {'params': [], 'weight_decay': 0.0}
     for module_ in module.modules():
-        if isinstance(module_, (nn.LayerNorm, mpu.transformer_enc_dec.LayerNorm)):
+        if isinstance(module_, (nn.LayerNorm, mpu.transformer.LayerNorm)):
             no_weight_decay_params['params'].extend(
                 [p for p in list(module_._parameters.values())
                  if p is not None])

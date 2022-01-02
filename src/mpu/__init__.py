@@ -32,4 +32,4 @@ from .random import partition_activations_in_checkpoint
 from .random import get_cuda_rng_tracker
 from .random import model_parallel_cuda_manual_seed
 
-from .transformer_enc_dec import ParallelTransformer
+from .transformer import ParallelTransformer

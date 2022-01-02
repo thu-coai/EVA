@@ -7,7 +7,7 @@ import os
 import copy
 from typing import Any, Dict, Union
 
-class EncDecConfig(object):
+class EVAConfig(object):
     def __init__(
         self,
         d_model=768,
@@ -52,11 +52,11 @@ class EncDecConfig(object):
         self.attn_scale = attn_scale
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike]) -> "EncDecConfig":
+    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike]) -> "EVAConfig":
         return cls.from_json_file(pretrained_model_name_or_path)
 
     @classmethod
-    def from_json_file(cls, json_file: Union[str, os.PathLike]) -> "EncDecConfig":
+    def from_json_file(cls, json_file: Union[str, os.PathLike]) -> "EVAConfig":
         config_dict = cls._dict_from_json_file(json_file)
         return cls(**config_dict)
 

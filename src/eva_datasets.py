@@ -10,11 +10,11 @@ import torch.distributed as dist
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
-from tokenization_enc_dec import EncDecTokenizer
+from tokenization_eva import EVATokenizer
 from utils import print_rank_0
 
 class EVADataset(Dataset):
-    def __init__(self, args, tokenizer: EncDecTokenizer, path, split, ratio=1, num=-1, cache_path=None):
+    def __init__(self, args, tokenizer: EVATokenizer, path, split, ratio=1, num=-1, cache_path=None):
         super(EVADataset, self).__init__()
 
         self.args = args

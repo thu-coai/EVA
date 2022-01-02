@@ -1,13 +1,12 @@
 # coding=utf-8
 
 import os
-import mpu
 import torch
 
 import torch.nn.functional as F
 
 from collections import defaultdict
-from tokenization_enc_dec import EncDecTokenizer
+from tokenization_eva import EVATokenizer
 
 
 class BeamHypotheses(object):
@@ -93,7 +92,7 @@ def calc_banned_antonym_words_ids(input_tokens, tokenizer, antonym_dict):
     return [list(tokens) for tokens in antonym_words]
 
 
-def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_size: int, tokenizer: EncDecTokenizer) -> None:
+def calc_banned_ngram_tokens(prev_input_ids, num_hypos: int, no_repeat_ngram_size: int, tokenizer: EVATokenizer) -> None:
     """Copied from fairseq for no_repeat_ngram in beam_search"""
     generated_ngrams = [{} for _ in range(num_hypos)]
     prev_input_words = []
@@ -219,7 +218,7 @@ def enforce_repetition_penalty_(tokenizer, lprobs, batch_size, num_beams, prev_o
 
 
 def postprocess_next_token_scores(
-    tokenizer: EncDecTokenizer,
+    tokenizer: EVATokenizer,
     scores,
     input_ids,
     no_repeat_ngram_size,
@@ -272,7 +271,7 @@ def postprocess_next_token_scores(
     return scores
 
 
-def generate_no_beam(model_batch, full_context, model, tokenizer: EncDecTokenizer, args, device):
+def generate_no_beam(model_batch, full_context, model, tokenizer: EVATokenizer, args, device):
     batch_size = args.batch_size
     target_length = args.max_length
     
@@ -364,7 +363,7 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EncDecTokenize
     return generation_str_list, generation_token_ids_list
 
 
-def generate_beam(model_batch, full_context, model, tokenizer: EncDecTokenizer, args, device):
+def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, args, device):
     '''
         Since the context in model batch is truncated, we need full_context to store the tokens in the entire context.
     '''
