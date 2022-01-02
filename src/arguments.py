@@ -164,9 +164,9 @@ def add_text_generate_args(parser: argparse.ArgumentParser):
     group.add_argument("--early-stopping", action="store_true",
                         help="Early-stopping while generating.")
     group.add_argument("--length-penalty", type=float, default=1.8,
-                        action="Length penalty, to prevent short generation.")
+                        help="Length penalty, to prevent short generation.")
     group.add_argument("--rule-path", type=str, default=None,
-                        action="The directory that contains hand-written rules.")
+                        help="The directory that contains hand-written rules.")
     return parser
 
 
