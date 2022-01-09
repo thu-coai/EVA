@@ -54,8 +54,12 @@ class EVADataset(Dataset):
         for line in tqdm(lines[:int(self.ratio * len(lines))], desc="Loading data from {}".format(path), disable=(dist.get_rank() != 0)):
             line = line.strip().split("\t")
             line = [self.tokenizer.encode(utt) for utt in line]
-            context = line[:-1]
-            target = line[-1]
+            if len(line) == 1:
+                context = line[0]
+                target = [0, 0] # empty dial
+            else:
+                context = line[:-1]
+                target = line[-1]
 
             trunc_context = []
             for c in context[::-1]:
