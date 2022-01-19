@@ -78,7 +78,7 @@ bash scripts/eva_inference_interactive_beam.sh #微调模型
 
 **注意**：运行上述命令后, 您需要确定预训练模型加载成功。如果它们加载成功，stdout 中会输出 `successfully loaded /path-to-checkpoint/eva/mp_rank_01_model_states.pt`. 否则，会输出 `WARNING: could not find the metadata file /***/latest_checkpointed_iteration.txt will not load any checkpoints and will start from random`。需要注意的是，当成功加载模型后，程序还会输出 `The following zero checkpoints paths are missing: ['/path-to-checkpoint/eva/200000/zero_pp_rank_0_mp_rank_00_optim_states.pt',...` 一大串 log，说明没有加载优化器的参数。因为本仓库代码只进行评测和微调，是否加载优化器参数没有影响，所以您可以忽略这个 log。
 
-如果上述脚本正常运行，对于交互式评测，您会看到一个交互提示符，可以在后面输入文字和 EVA 对话。对于静态评测和模型微调，代码会读取数据并启动模型训练和推理。
+如果上述脚本正常运行，对于交互式评测，您会看到一个交互提示符，可以在后面输入文字和 EVA 对话。对于静态评测和模型微调，代码会读取数据并启动模型训练和推理。对于微调或静态评测，最后的评测结果存储在 `results/` 中。
 
 ## 4 参考结果
 

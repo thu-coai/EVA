@@ -1,6 +1,6 @@
 #! /bin/bash
 
-WORKING_DIR=/root/guyuxian/eva-origin/
+WORKING_DIR=/home/guyuxian/eva-origin/
 
 # Change for multinode config
 MP_SIZE=1

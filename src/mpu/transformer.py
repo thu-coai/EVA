@@ -657,13 +657,15 @@ class ParallelTransformer(nn.Module):
         if past_key_values is None:
             past_key_values = [None] * len(self.blocks)
 
-        # NOTE: check implementation: checkpoint_activations
+        all_self_attention_probs = []
+        all_cross_attention_probs = []
 
         def custom(start, end):
-            def custom_forward(*inputs):                
+            def custom_forward(*inputs):
                 layer_modules_ = self.blocks[start:end]
                 past_key_values_ = past_key_values[start:end]
-                present_key_values_ = []
+                self_attn_present_key_values_ = []
+                cross_attn_present_key_values_ = []
                 position_bias_, enc_dec_position_bias_ = None, None
 
                 hidden_states_ = inputs[0]
@@ -677,6 +679,7 @@ class ParallelTransformer(nn.Module):
                 else:
                     enc_hidden_states_ = None
 
+                _l = start
                 for layer_, past_key_value_ in zip(layer_modules_, past_key_values_):
                     layer_outputs_ = layer_(hidden_states_,
                                             attention_mask,
@@ -687,17 +690,30 @@ class ParallelTransformer(nn.Module):
                                             past_key_value=past_key_value_)
                     
                     hidden_states_, present_key_value_ = layer_outputs_[:2]
+                    if self.is_decoder:
+                        self_attn_present_key_values_.append(present_key_value_[0])
+                        cross_attn_present_key_values_.append(present_key_value_[1])
+                        all_self_attention_probs.append(layer_outputs_[-2])
+                        all_cross_attention_probs.append(layer_outputs_[-1])
+                    else:
+                        self_attn_present_key_values_.append(present_key_value_[0])
+                        all_self_attention_probs.append(layer_outputs_[-1])
 
                     position_bias_ = layer_outputs_[2]
                     if self.is_decoder and enc_hidden_states is not None:
                         enc_dec_position_bias_ = layer_outputs_[3]
-
+                    
+                    _l += 1
+                
                 outputs_ = (hidden_states_,)
                 if position_bias_ is not None:
                     outputs_ += (position_bias_,)
                 if enc_dec_position_bias_ is not None:
                     outputs_ += (enc_dec_position_bias_,)
-
+                if self.is_decoder:
+                    self_attn_present_key_values_ = torch.stack(self_attn_present_key_values_, dim=0)
+                    cross_attn_present_key_values_ = torch.stack(cross_attn_present_key_values_, dim=0)
+                    outputs_ += (self_attn_present_key_values_, cross_attn_present_key_values_,)
                 return outputs_
             
             return custom_forward
@@ -721,13 +737,18 @@ class ParallelTransformer(nn.Module):
                     tmp_outputs = checkpoint(custom(l, l+chunk_length), *arg_list)
                 
                 hidden_states = tmp_outputs[0]
-                if len(tmp_outputs) > 1:
-                    position_bias = tmp_outputs[1]
-                if len(tmp_outputs) > 2:
-                    enc_dec_position_bias = tmp_outputs[2]
-
-                # NOTE: we didn't consider present_key_value_states and all_hidden_states
-                present_key_value_states.extend([None] * chunk_length)
+                if self.is_decoder:
+                    if len(tmp_outputs) > 3:
+                        position_bias = tmp_outputs[1]
+                    if len(tmp_outputs) > 4:
+                        enc_dec_position_bias = tmp_outputs[2]
+                    present_key_value_states.extend([(s, c) for s, c in zip(tmp_outputs[-2], tmp_outputs[-1])])
+                else:
+                    if len(tmp_outputs) > 1:
+                        position_bias = tmp_outputs[1]
+                    if len(tmp_outputs) > 2:
+                        enc_dec_position_bias = tmp_outputs[2]
+                    present_key_value_states.extend([None] * chunk_length)            
                 
                 l += chunk_length
         else:
@@ -743,9 +764,14 @@ class ParallelTransformer(nn.Module):
                     past_key_value=past_key_value
                 )
                 # layer_outputs is a tuple with:
-                # hidden-states, key-value-states, self-attention position bias, cross-attention position bias
+                # hidden-states, key-value-states, self-attention position bias, cross-attention position bias, attention_probs
                 hidden_states, present_key_value_state = layer_outputs[:2]
-                
+                if self.is_decoder:
+                    all_self_attention_probs.append(layer_outputs[-2])
+                    all_cross_attention_probs.append(layer_outputs[-1])
+                else:
+                    all_self_attention_probs.append(layer_outputs[-1])
+
                 position_bias = layer_outputs[2]
                 if self.is_decoder and enc_hidden_states is not None:
                     enc_dec_position_bias = layer_outputs[3]
@@ -763,8 +789,8 @@ class ParallelTransformer(nn.Module):
             "last_hidden_state": hidden_states,
             "past_key_values": present_key_value_states,
             "hidden_states": None,
-            "attentions": None,
-            "cross_attentions": None
+            "attentions": all_self_attention_probs,
+            "cross_attentions": all_cross_attention_probs
         }
 
         return outputs

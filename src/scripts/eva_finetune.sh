@@ -59,6 +59,7 @@ OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${DS_CONFIG}"
 OPTS+=" --do-train"
 OPTS+=" --do-valid"
+# OPTS+=" --eval-generation" # run the evaluation of generation
 OPTS+=" --train-ratio 1"
 
 CMD="python3 -m torch.distributed.launch --master_port 1234 --nproc_per_node ${NUM_GPUS_PER_WORKER} ${WORKING_DIR}/src/eva_finetune.py ${OPTS}"
