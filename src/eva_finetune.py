@@ -129,9 +129,9 @@ def setup_model_and_optimizer(args, model_config, ds_config, do_train=True):
 
     model = get_model(args, model_config)
     optimizer, lr_scheduler = None, None
-    # if do_train:
-    optimizer = get_optimizer(model, args)
-    lr_scheduler = get_learning_rate_scheduler(optimizer, args)
+    if do_train:
+        optimizer = get_optimizer(model, args)
+        lr_scheduler = get_learning_rate_scheduler(optimizer, args)
 
     if args.deepspeed:
         print_rank_0("DeepSpeed is enabled.")
