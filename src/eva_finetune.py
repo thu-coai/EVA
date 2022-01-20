@@ -368,11 +368,7 @@ def evaluate(args, tokenizer, eval_dataset, eval_data_loader, model, device, mod
 
         loss_res /= step
 
-        if args.eval_generation and mode == "dev":
-            print_rank_0("Warning: Generation while training is currrenty not supported")
-        
-        if args.eval_generation and mode != "dev":
-            # NOTE: "Generation while training is currrenty not supported"
+        if args.eval_generation:
             generation_res = []
             for e, (model_batch, no_model_batch) in enumerate(tqdm(eval_data_loader, desc="Evaluating")):
                 for k in model_batch:
