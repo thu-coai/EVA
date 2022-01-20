@@ -179,7 +179,7 @@ class ParallelAttention(nn.Module):
                                                         stride=3,
                                                         bias=False,
                                                         gather_output=False,
-                                                init_method=init_method_normal(config.init_method_std))
+                                                        init_method=init_method_normal(config.init_method_std))
         
         if self.has_relative_attention_bias:
             self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.num_attention_heads_per_partition)
@@ -196,13 +196,6 @@ class ParallelAttention(nn.Module):
                                        bias=False,
                                        init_method=init_method_normal(config.init_method_std))
         self.output_dropout = nn.Dropout(config.dropout_rate)
-
-        # NOTE: This is a hack for our 130 training head.
-        # self.do_dim_trick = config.do_dim_trick
-        # if torch.distributed.get_rank() % 5 == 4:
-        #     self.head_mask = nn.Parameter(torch.tensor([1.0] * 24 + [0.0, 0.0]), requires_grad=False)
-        # else:
-        #     self.head_mask = nn.Parameter(torch.tensor([1.0] * 26), requires_grad=False)
 
         if deepspeed.checkpointing.is_configured():
             global get_cuda_rng_tracker, checkpoint
@@ -391,10 +384,10 @@ class ParallelAttention(nn.Module):
         # attn_output: [b, s, d_model]
         attn_output = self.output_dropout(attn_output)
 
-        present_key_value_state = (key_layer, value_layer) if self.is_decoder else None
-        outputs = (attn_output,) + (present_key_value_state,) + (position_bias,)
+        present_key_value_state = torch.stack((key_layer, value_layer), dim=0) if self.is_decoder else None
+        outputs = (attn_output,) + (present_key_value_state,) + (position_bias,) + (None,)
 
-        return outputs  # attn_output, present_key_value_state, position_bias
+        return outputs  # attn_output, present_key_value_state, position_bias, attention_probs
 
 
 class ParallelSelfAttention(nn.Module):
@@ -434,7 +427,7 @@ class ParallelSelfAttention(nn.Module):
         hidden_states = hidden_states + self.dropout(attention_output[0])
         # add attentions if we output them
         outputs = (hidden_states,) + attention_output[1:]
-        return outputs # hidden_states, present_key_value_state, position_bias
+        return outputs # hidden_states, present_key_value_state, position_bias, (attention_probs)
 
 
 class ParallelCrossAttention(nn.Module):
@@ -478,7 +471,7 @@ class ParallelCrossAttention(nn.Module):
         hidden_states = hidden_states + self.dropout(attention_output[0])
         # add attentions if we output them
         outputs = (hidden_states,) + attention_output[1:]
-        return outputs # hidden_states, present_key_value_state, position_bias
+        return outputs # hidden_states, present_key_value_state, position_bias, (attention_probs)
 
 
 class ParallelFF(nn.Module):
@@ -546,8 +539,8 @@ class ParallelBlock(nn.Module):
         past_key_value=None,):
 
         if past_key_value is not None:
-            self_attn_past_key_value = past_key_value[:2]
-            cross_attn_past_key_value = past_key_value[2:]
+            self_attn_past_key_value = past_key_value[0]
+            cross_attn_past_key_value = past_key_value[1]
         else:
             self_attn_past_key_value, cross_attn_past_key_value = None, None
 
@@ -557,13 +550,15 @@ class ParallelBlock(nn.Module):
             position_bias=position_bias,
             past_key_value=self_attn_past_key_value,
         )
-        hidden_states, present_key_value_state = self_attn_outputs[:2]
-        attention_outputs = self_attn_outputs[2:] # position_bias
+        hidden_states, self_attn_present_key_value = self_attn_outputs[:2]
+        position_bias = (self_attn_outputs[2],)
+        attention_probs = (self_attn_outputs[3],)
+        present_key_value = (self_attn_present_key_value,)
 
         # cross attn
         if self.is_decoder:
-            if present_key_value_state is not None:
-                query_length = present_key_value_state[0].shape[2]
+            if self_attn_present_key_value is not None:
+                query_length = self_attn_present_key_value[0].shape[2]
             else:
                 query_length = None
 
@@ -576,21 +571,19 @@ class ParallelBlock(nn.Module):
                 query_length=query_length,
             )
 
-            hidden_states = cross_attn_outputs[0]
-            # Combine self attn and cross attn key value states
-            if present_key_value_state is not None:
-                present_key_value_state = present_key_value_state + cross_attn_outputs[1]
-
+            hidden_states, cross_attn_present_key_value = cross_attn_outputs[:2]
+            present_key_value += (cross_attn_present_key_value,)
             # Keep cross-attention outputs and relative position weights
-            attention_outputs = attention_outputs + cross_attn_outputs[2:]
+            position_bias = position_bias + (cross_attn_outputs[2],)
+            attention_probs = attention_probs + (cross_attn_outputs[3],)
 
         hidden_states = self.ff(hidden_states)
         outputs = (hidden_states,)
 
-        outputs = outputs + (present_key_value_state,) + attention_outputs
+        outputs = outputs + (present_key_value,) + position_bias + attention_probs
 
-        # (for encoder) hidden_states, present_key_value_states, self-attention position bias
-        # (for decoder) hidden_states, present_key_value_states, self-attention position bias, cross-attention position bias
+        # (for encoder) hidden_states, present_key_value_states, self-attention position bias, attention_probs
+        # (for decoder) hidden_states, present_key_value_states, self-attention position bias, cross-attention position bias, self_attention_probs, cross_attention_probs
         return outputs
 
 

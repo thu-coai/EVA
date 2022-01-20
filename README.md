@@ -55,6 +55,7 @@ docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.4 /bin/bash
 ```
 
 ### 3.2 准备数据
+
 将训练、验证、测试数据放在一个目录下，该目录中需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，文件的每一行为一个对话样本（展开后），轮次之间用`\t`分隔，最后一轮为模型需要生成的对话，前面的轮次为对话上下文，具体格式可以参考我们给出的预处理好的 [KdConv](https://github.com/thu-coai/KdConv) 数据：
 
 ### 3.3 运行代码
@@ -65,7 +66,7 @@ docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.4 /bin/bash
 + 静态评测脚本：`eva_inference_static.sh`
 + 微调脚本：`eva_finetune.sh`
 
-在运行以上脚本之前，需要先将 `WORKING_DIR` 改为此 EVA 目录的路径, 将 `CKPT_PATH` 改为存储预训练 checkpoint 的路径。静态评测和微调还需要将`DATA_PATH`改为3.2中的数据目录，该目录下需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，训练/评测结果存储位置`SAVE_PATH`也可以按照需求修改。
+在运行以上脚本之前，需要先将 `WORKING_DIR` 改为此 EVA 目录的路径, 将 `CKPT_PATH` 改为存储预训练 checkpoint 的路径。静态评测和微调还需要将`DATA_PATH`改为3.2中的数据目录，该目录下需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，训练/评测结果存储位置`SAVE_PATH`也可以按照需求修改。其它参数含义可以参考脚本中的注释。
 
 **注意**：EVA2.0 与 EVA1.x 在模型结构上有一些差别，在更换模型时请注意同时更换模型配置文件。项目中默认提供EVA2.0的模型配置文件：`eva2.0_model_config.json`，EVA1.0 和 EVA1.5 的配置文件为 `eva1.x_model_config.json`。更改执行脚本中的 `CONFIG_PATH` 即可。
 

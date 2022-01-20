@@ -7,7 +7,7 @@ MP_SIZE=1
 
 NUM_GPUS_PER_WORKER=8
 
-DATA_PATH="/dataset/f1d6ea5b/gyx/data/duconv"
+DATA_PATH="${WORKING_DIR}/data/duconv"
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
 CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
