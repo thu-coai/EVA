@@ -138,9 +138,9 @@ def add_text_generate_args(parser: argparse.ArgumentParser):
                         help="Top-p sampling.")
     group.add_argument("--top_k", type=int, default=0,
                         help="Top-k sampling.")
-    group.add_argument("--max-length", type=int, default=64,
+    group.add_argument("--max-generation-length", type=int, default=128,
                         help="The maximum sequence length to generate.")
-    group.add_argument("--min-length", type=int, default=2,
+    group.add_argument("--min-generation-length", type=int, default=2,
                         help="The minimum sequence length to generate.")
     group.add_argument("--num-beams", type=int, default=1,
                         help="The beam number of beam search.")

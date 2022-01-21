@@ -380,7 +380,7 @@ def evaluate(args, tokenizer, eval_dataset, eval_data_loader, model, device, mod
                 else:
                     generation_str_list, generation_id_list = generate_beam(model_batch, model_batch["enc_input_ids"], model, tokenizer, args, device)
 
-                output_ids = [x + [tokenizer.sep_id] + (args.max_length - len(x) - 1) * [tokenizer.pad_id] for x in generation_id_list]
+                output_ids = [x + [tokenizer.sep_id] + (args.max_generation_length - len(x)) * [tokenizer.pad_id] for x in generation_id_list]
                 output_ids = torch.tensor(output_ids).to(device)
 
                 tmp_labels = [torch.zeros_like(no_model_batch["labels"]).to(device) for _ in range(mpu.get_data_parallel_world_size())]
@@ -483,7 +483,9 @@ def main():
     if args.do_eval:
         eval_dataloader, eval_dataset, _ = load_data(args, 'test', tokenizer, ratio=args.test_ratio)
         loss, metrics, generation = evaluate(args, tokenizer, eval_dataset, eval_dataloader, model, device, mode="test")
-        log_string = "Eval result: loss: {:.6}".format(loss)
+        log_string = "Eval result: "
+        for key, value in metrics.items():
+            log_string += " {}: {:.5} | ".format(key, value)
         if dist.get_rank() == 0:
             with open(os.path.join(args.save, "metrics.json"), "w") as f:
                 json.dump(metrics, f, ensure_ascii=False, indent=2)

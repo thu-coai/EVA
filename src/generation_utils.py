@@ -270,7 +270,7 @@ def postprocess_next_token_scores(
 
 def generate_no_beam(model_batch, full_context, model, tokenizer: EVATokenizer, args, device):
     batch_size = args.batch_size
-    target_length = args.max_length
+    target_length = args.max_generation_length
     
     dec_init_length = 1 # +1 for s_0
     
@@ -324,8 +324,8 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EVATokenizer, 
                 no_repeat_ngram_size=args.no_repeat_ngram_size,
                 bad_words_ids=[[0]],
                 cur_len=gen_len,
-                min_length=args.min_length,
-                max_length=args.max_length,
+                min_length=args.min_generation_length,
+                max_length=args.max_generation_length,
                 eos_token_id=tokenizer.sep_id,
                 repetition_penalty=args.repetition_penalty,
                 batch_size=batch_size,
@@ -366,7 +366,7 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
     '''
     batch_size = args.batch_size
     num_beams = args.num_beams
-    target_length = args.max_length
+    target_length = args.max_generation_length
     
     do_sample = args.top_p > 0 or args.top_k > 0
     vocab_size = tokenizer.vocab_size
@@ -447,8 +447,8 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
             no_repeat_ngram_size=args.no_repeat_ngram_size,
             bad_words_ids=None,
             cur_len=gen_len,
-            min_length=args.min_length,
-            max_length=args.max_length,
+            min_length=args.min_generation_length,
+            max_length=args.max_generation_length,
             eos_token_id=tokenizer.sep_id,
             repetition_penalty=args.repetition_penalty,
             batch_size=batch_size,
