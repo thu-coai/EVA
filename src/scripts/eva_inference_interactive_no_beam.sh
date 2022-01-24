@@ -1,6 +1,6 @@
 #! /bin/bash
 
-WORKING_DIR=/root/guyuxian/eva-origin//
+WORKING_DIR=/root/guyuxian/eva-origin/
 
 # Model Parallel Config
 MP_SIZE=1

@@ -467,6 +467,10 @@ def main():
         dev_dataloader, dev_dataset, _  = load_data(args, 'valid', tokenizer, ratio=args.valid_ratio)
         if args.train_iters == -1:
             args.train_iters = len(train_dataset) * args.epochs // (mpu.get_data_parallel_world_size() * args.batch_size * args.gradient_accumulation_steps)
+        if args.save_interval == -1:
+            args.save_interval = len(train_dataset) // (mpu.get_data_parallel_world_size() * args.batch_size * args.gradient_accumulation_steps)
+        if args.eval_interval == -1:
+            args.eval_interval = len(train_dataset) // (mpu.get_data_parallel_world_size() * args.batch_size * args.gradient_accumulation_steps)                
     else:
         args.train_iters = 10 # a magic number
 

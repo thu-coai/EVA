@@ -550,7 +550,8 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
         dec_attention_mask = torch.cat([dec_attention_mask[:, :, -1:, :], dec_attention_mask[:, :, -1:, -1:]], dim=-1)
         cross_attention_mask = cross_attention_mask[:, :, -1:, :]
 
-        past_key_values = [[torch.index_select(layer_past_type, 0, beam_idx) for layer_past_type in layer_past] for layer_past in past_key_values]
+        # past_key_values = num_layer * 2 * (2, beam_size, 32, prefix_len, 64) first 2: self/cross attention, second 2: key/value
+        past_key_values = [[torch.index_select(layer_past_type, 1, beam_idx) for layer_past_type in layer_past] for layer_past in past_key_values]
         
         gen_len += 1
 

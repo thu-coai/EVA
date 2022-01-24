@@ -106,14 +106,7 @@ def save_ds_checkpoint(iteration, model, args):
 
     sd = {}
     sd['iteration'] = iteration
-    # rng states.
-    if not args.no_save_rng:
-        sd['random_rng_state'] = random.getstate()
-        sd['np_rng_state'] = np.random.get_state()
-        sd['torch_rng_state'] = torch.get_rng_state()
-        sd['cuda_rng_state'] = torch.cuda.get_rng_state()
-        sd['rng_tracker_states'] = mpu.get_cuda_rng_tracker().get_states()
-        
+      
     model.save_checkpoint(args.save, str(iteration), client_state = sd, save_zero=False)
 
 

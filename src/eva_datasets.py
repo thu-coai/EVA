@@ -11,7 +11,7 @@ import torch.distributed as dist
 from tqdm import tqdm
 from torch.utils.data import Dataset
 from tokenization_eva import EVATokenizer
-from utils import print_rank_0
+from utils import print_rank_0, save_rank_0
 
 class EVADataset(Dataset):
     def __init__(self, args, tokenizer: EVATokenizer, path, split, ratio=1, num=-1, cache_path=None):
@@ -40,8 +40,9 @@ class EVADataset(Dataset):
                 print("Provide cache, loading pickle")
                 self.contexts, self.targets, self.labels = pickle.load(f)
 
-        if dist.get_rank() == 0:
-            print_rank_0("Total Data Number: {}".format(len(self.contexts)))
+        print_str = "Path: {} | Ratio:{} | Max enc len: {} | Max dec len: {} | Data num: {}".format(path, ratio, self.max_enc_len, self.max_dec_len, len(self.contexts))
+        print_rank_0(print_str)
+        save_rank_0(args, print_str)
 
     def preprocess(self, path):
         contexts = []

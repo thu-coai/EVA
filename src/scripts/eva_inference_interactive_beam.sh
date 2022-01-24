@@ -1,14 +1,14 @@
 #! /bin/bash
 
-WORKING_DIR=/root/guyuxian/eva-origin//
+WORKING_DIR=/root/guyuxian/eva-origin/
 
 # Change for multinode config
-MP_SIZE=2
+MP_SIZE=1
 
-NUM_GPUS_PER_WORKER=2
+NUM_GPUS_PER_WORKER=1
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
-CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0_MP2"
+CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
 
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
@@ -39,7 +39,6 @@ OPTS+=" --rule-path ${RULE_PATH}"
 OPTS+=" --fp16"
 OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${DS_CONFIG}"
-OPTS+=" --train-ratio 0.1"
 
 CMD="python3 -m torch.distributed.launch --master_port 1234 --nproc_per_node ${NUM_GPUS_PER_WORKER} ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
 
