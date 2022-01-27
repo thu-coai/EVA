@@ -1,24 +1,14 @@
-# EVA: An Open-Domain Chinese Dialogue System with Large-Scale Generative Pre-Training
+# EVA: 大规模中文开放域对话系统
 
-## 1 Introduction
+## 1 项目简介
 
-EVA is an open-domain Chinese pre-trained model, which contains the largest Chinese dialogue model with 2.8B parameters and is pre-trained on WDC-Dialogue, including 1.4B Chinese dialogue data from different domains. Paper link: https://arxiv.org/abs/2108.01547.
+EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，主要擅长开放域闲聊，目前有 1.0、2.0 三个版本。其中，1.0版本在 [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home) 上训练而成，2.0 版本从 WudaoCorpus-Dialog 中清洗出的在更高质量的对话数据上训练而成，模型性能也明显好于 EVA1.0。EVA1.0 [论文链接](https://arxiv.org/abs/2108.01547)。
 
-## 2 Dataset
+本仓库中提供了模型交互式评测，模型静态评测，模型微调的代码。
 
-We construct a dataset named **WDC-Dialogue** from Chinese social media to train EVA. Specifically, conversations from various sources are gathered and a rigorous data cleaning pipeline is designed to enforce the quality of WDC-Dialogue. We mainly focus on three categories of textual interaction data, i.e., **repost** on social media, **comment** / **reply** on various online forums and online **question and answer (Q\&A)** exchanges. Each round of these textual interactions yields a dialogue session via well-designed parsing rules. The following table shows statistics of the filtered WDC-Dialogue dataset and other Chinese dialogue datasets.
+## 2 模型下载
 
-<img src="fig/dataset.png" style="zoom:60%;" />
-
-## 3 Model
-
-**EVA** is a Transformer-based dialogue model with a bi-directional encoder and a uni-directional decoder. We present the EVA's model details and a comparison with previous large-scale Chinese pre-trained dialogue models in the following table.
-
-<div align=center>
-<img src="fig/model.png" width="600" />
-</div>
-
-The model can be downloaded in [BAAI's repository](https://wudaoai.cn/model/detail/EVA). The downloaded folder should have the following structure:
+EVA1.0 模型可以从[智源下载专区](https://wudaoai.cn/model/detail/EVA)下载，下载后的目录应该具有如下结构：
 
 ```[bash]
 eva/
@@ -27,84 +17,139 @@ eva/
 ├── latest_checkpointed_iteration.txt
 ```
 
-## 4 Experiment
+**由于智源研究院正在对 EVA2.0 模型进行评估，其模型参数的开源仍需要一定的时间。**
 
-We compare EVA with Chinese pre-trained models including [CDial-GPT](https://github.com/thu-coai/CDial-GPT) and [CPM](https://github.com/TsinghuaAI/CPM). Results in the automatic evaluation including uni-gram F1, ROUGE-L, BLEU-4 and distinct n-grams are shown as follows:
+## 3 运行
 
-<div align=center>
-<img src="fig/auto_eval.png" width="500" />
-</div>
-  
-We also present an example of multi-turn generation results in the interactive human evaluation:
+所有代码都包含在 `src/` 目录下.
 
-<div align=center>
-<img src="fig/example.png" width="500" />
-</div>
+### 3.1 环境配置
 
+代码运行需要 CUDA10.2 toolkit。交互式评测大约需要占用 7000MB 显存，静态评测和模型微调占用的显存取决于 batch size 和最大输入长度。经过测试，当前微调的超参数配置可以在 4*32G V100 上跑起来。我们提供了两种配置环境的方式。
 
-## 5 Run the Code
+#### 方式1: 使用 requirements.txt
 
-We provide the inference code of EVA. The source code is provided in `src/`.
-
-### 5.1 Environment
-
-The inference code occupies only about 7000MB GPU memory. So generally a single GPU is enough. We provide 2 options to set up the environment.
-#### Option 1: Local setup
-
-##### Install basic dependencies
+安装基础依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-##### Install apex
+安装 apex
 
 ```bash
 git clone https://github.com/NVIDIA/apex
 cd apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 ```
-##### Install DeepSpeed
 
-The version we used is `v0.3.9`, It can be installed from its [repo](https://github.com/microsoft/DeepSpeed/releases/tag/v0.3.9) or 
-```bash
+安装 deepspeed
+
+我们使用了 `v0.3.9` 版本的 deepspeed，可以从[此仓库](https://github.com/microsoft/DeepSpeed/releases/tag/v0.3.9)中下载安装，或者运行如下命令：
+
+```[bash]
 pip install deepspeed==0.3.9
 ```
-Since there exists some **bugs** in DeepSpeed, you need to make some little modifications to this package. You can refer to https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11 for more information. Specifically, you need to modify two lines of code in `deepspeed/runtime/zero/stage1.py`. We provide the modified `stage1.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` in our repo. 
 
-#### Option 2: Docker
+由于此版本的 deepspeed 有一些 **bug**，您可能需要对安装后的 python 包做一些修改。关于 bug 的具体信息您可以参考[此问题](https://github.com/TsinghuaAI/CPM-2-Finetune/issues/1) 。简单来说，您需要修改 `deepspeed/runtime/zero/stage1.py` 与 `deepspeed/runtime/engine.py` 中的几行代码。 我们在仓库中提供了修改后的 `stage1.py` 与 `engine.py`。您只需要将 `deepspeed/runtime/zero/stage1.py` 替换为 `stage1.py`，`deepspeed/runtime/engine.py` 替换为 `engine.py` 即可。
 
-```[bash]
-docker pull gyxthu17/eva:1.2
-```
-
-Since the environment is ready in the docker, you don't need to set any environment variables. You may need to mount this directory to a directory in the docker. For example, to mount to /mnt, run the following code to run the docker image:
+#### 方式2: 使用 Docker
 
 ```[bash]
-docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.2 /bin/bash
+docker pull gyxthu17/eva:1.4
 ```
-### 5.2 Run
 
-Before running the code, please change `WORKING_DIR` in the script to the path of this EVA directory, change `CKPT_PATH` to the path where the pre-trained weights are stored. 
+因为上述环境已经在 docker 中预装，您不需要再设置任何环境变量了。为了运行代码，您可能需要将此仓库挂在到 docker 中的目录，例如，`/mnt` 目录。为此，您可以运行如下代码：
 
-
-Run the following command:
+```[bash]
+docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.4 /bin/bash
 ```
+
+### 3.2 准备数据
+
+将训练、验证、测试数据放在一个目录下，该目录中需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，文件的每一行为一个对话样本（展开后），轮次之间用`\t`分隔，最后一轮为模型需要生成的对话，前面的轮次为对话上下文，具体格式可以参考我们给出的预处理好的 [KdConv 数据](https://drive.google.com/file/d/1AO06NvhFA5axZci8hC9IZ6nJEYjkbRKg/view?usp=sharing)。KdConv 原始数据可从[此仓库](https://github.com/thu-coai/KdConv)下载。
+
+### 3.3 运行代码
+
+所有运行脚本都在 `src/scripts` 中。
+
++ 交互式评测脚本：`eva_inference_interactive_beam.sh` 与 `eva_inference_interactive_no_beam.sh`
++ 静态评测脚本：`eva_inference_static.sh`
++ 微调脚本：`eva_finetune.sh`
+
+在运行以上脚本之前，需要先将 `WORKING_DIR` 改为此 EVA 目录的路径, 将 `CKPT_PATH` 改为存储预训练 checkpoint 的路径。静态评测和微调还需要将`DATA_PATH`改为3.2中的数据目录，该目录下需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，训练/评测结果存储位置`SAVE_PATH`也可以按照需求修改。其它参数含义可以参考中 `eva_finetune.sh` 的注释。
+
+**注意**：EVA2.0 与 EVA1.0 在模型结构上有一些差别，在更换模型时请注意同时更换模型配置文件。项目中默认提供 EVA1.0 的模型配置文件：`eva1.0_model_config.json`，EVA2.0 的配置文件为 `eva2.0_model_config.json`。更改执行脚本中的 `CONFIG_PATH` 即可。
+
+上述修改修改完成后运行：
+
+```[bash]
 cd src/
-bash scripts/infer_enc_dec_interactive.sh
+bash scripts/eva_inference_interactive_beam.sh # 交互式评测，使用 beam search 解码
+bash scripts/eva_inference_interactive_no_beam.sh # 交互式评测，不使用 beam search 解码
+bash scripts/eva_inference_static.sh # 静态评测
+bash scripts/eva_finetune.sh # 微调模型
 ```
 
-After running the command, please first make sure the pre-trained weights are load. If they are loaded, the log printed to the stdout should contain messages like `successfully loaded /path-to-checkpoint/eva/mp_rank_01_model_states.pt`. Otherwise, `WARNING: could not find the metadata file /***/latest_checkpointed_iteration.txt will not load any checkpoints and will start from random` will display. Note that when you successfully load the model, you will see messages like `The following zero checkpoints paths are missing: ['/path-to-checkpoint/eva/200000/zero_pp_rank_0_mp_rank_00_optim_states.pt',...` which mean optimizer states are not loaded. This **DOES NOT** affect the use of model inference and you can just ignore it.
+**注意**：运行上述命令后, 您需要确定预训练模型加载成功。如果它们加载成功，stdout 中会输出 `successfully loaded /path-to-checkpoint/eva/mp_rank_01_model_states.pt`. 否则，会输出 `WARNING: could not find the metadata file /***/latest_checkpointed_iteration.txt will not load any checkpoints and will start from random`。需要注意的是，当成功加载模型后，程序还会输出 `The following zero checkpoints paths are missing: ['/path-to-checkpoint/eva/200000/zero_pp_rank_0_mp_rank_00_optim_states.pt',...` 一大串 log，说明没有加载优化器的参数。因为本仓库代码只进行评测和微调，是否加载优化器参数没有影响，所以您可以忽略这个 log。
 
-If things go well, you will eventually enter an interactive interface. Have fun talking to EVA!
+如果上述脚本正常运行，对于交互式评测，您会看到一个交互提示符，可以在后面输入文字和 EVA 对话，输入 `clear` 可以重新开始对话，输入 `seed` 可以设置随机种子。对于静态评测和模型微调，代码会读取数据并启动模型训练和推理，最后的结果存储在 `SAVE_PATH` 中。
 
-## 6 Disclaimer
+## 4 参考结果
 
-The pre-trained models aim to facilitate the research for conversation generation. The model provided in this repository is trained on a large dataset collected from various sources. Although a rigorous cleaning and filtering process has been carried out to the data and the model output, there is no guarantee that all the inappropriate contents have been completely banned. All the contents generated by the model do not represent the authors' opinions. The decoding script provided in this repository is only for research purposes. We are not responsible for any content generated using our model.
+我们使用处理好的 KdConv 数据集进行评测，按照仓库中给出的超参数微调、静态评测得到如下结果
 
+|                        |      |        |        |       |
+| ----                   | ---- | ----   | ----   | ----  |
+|                        | ppl. | BLEU-4 | Dist-4 | f1    |
+| eva1.0 Finetune 前     | 3.49 | 0.64   | 85.94  | 13.24 |  
+| eva1.0 Finetune 后     | 2.37 | 3.94   | 72.47  | 19.80 |
+| eva2.0 Finetune 前     | 3.14 | 1.02   | 82.67  | 14.36 |  
+| eva2.0 Finetune 后     | 2.09 | 4.69   | 73.03  | 22.91 |
 
-## 7 Citation
+使用 beam search 对 EVA2.0 模型进行交互式评测，我们获得了如下样例。
+
+```[]
+Usr >>> 你好
+Sys >>> 你好，请问你是？
+Usr >>> 我是小明
+Sys >>> 好的，小明，我是新来的，请多关照
+Usr >>> 你了解人工智能吗？
+Sys >>> 不了解，我只知道我是机器人
+Usr >>> 那你很聪明
+Sys >>> 谢谢夸奖，我会继续努力的
+Usr >>> 你是学什么专业的呀
+Sys >>> 计算机科学与技术，你呢？
+Usr >>> 我也是学计算机的
+Sys >>> 哦，那你有什么想知道的，可以问我
+Usr >>> 编程语言你学过哪些？
+Sys >>> java,c,c+都学过
+Usr >>> 你学的真多
+Sys >>> 呵呵，还好吧，我比较喜欢写代码
+Usr >>> 哈哈，我也喜欢写代码，以后可以多多交流
+Sys >>> 嗯，好的
+Usr >>> 拜拜喽
+Sys >>> 拜～
 ```
+
+**注意**：由于不同硬件的随机函数可能不同，即使使用和我们相同的随机种子，可能仍然无法复现样例结果。但是整体性能应该不会有太大差距。
+
+## 5 免责声明
+
+本预训练对话模型仅限科研用途。模型训练数据集中的对话收集自不同的来源，虽然我们设计了一套严格的数据清洗流程，但是我们并不保证所有不当内容均已被过滤。该数据中所包含的所有内容和意见与本项目作者无关。 本项目所提供的模型和代码仅为完整对话系统的一个组成部分，我们所提供的解码脚本仅限科研用途，使用本项目中的模型和脚本所生成的一切对话内容与本项目作者无关。
+
+## 6 TODO
+
++ ~~finetune 代码整理与开源~~
++ huggingface 版本的模型/对应代码
++ EVA2.0 模型下载链接
++ EVA2.0 技术报告
++ 开源小规模模型
++ 预训练数据处理代码开源
+
+## 7 引用
+
+```[]
 @article{coai2021eva,
   title={EVA: An Open-Domain Chinese Dialogue System with Large-Scale Generative Pre-Training},
   author={Zhou, Hao and Ke, Pei and Zhang, Zheng and Gu, Yuxian and Zheng, Yinhe and Zheng, Chujie and Wang, Yida and Wu, Chen Henry and Sun, Hao and Yang, Xiaocong and Wen, Bosi and Zhu, Xiaoyan and Huang, Minlie and Tang, Jie},

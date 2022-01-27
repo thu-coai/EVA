@@ -6,3 +6,6 @@ results/
 checkpoints/
 pretain_data/
 *.so
+*.xlsx
+test_data/
+data/
