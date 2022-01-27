@@ -1,19 +1,17 @@
 #! /bin/bash
 
-WORKING_DIR=/root/eva-origin/
+WORKING_DIR=/home/coai/eva-interactive/
 
-# Change for multinode config
 MP_SIZE=1
 
-NUM_WORKERS=1
 NUM_GPUS_PER_WORKER=8
 
 DATA_PATH="${WORKING_DIR}/data/kdconv"
 
-CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
-CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
+CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva1.0_model_config.json"
+CKPT_PATH="${WORKING_DIR}/results/inference_static"
 
-SAVE_PATH="${WORKING_DIR}/results/test_eva_infer_finetune/"
+SAVE_PATH="${WORKING_DIR}/results/test_eva_infer_finetune_1.0/"
 LOG_FILE="${SAVE_PATH}/log.txt"
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
@@ -39,6 +37,7 @@ OPTS+=" --dec-seq-length ${DEC_LEN}"
 OPTS+=" --save ${SAVE_PATH}"
 OPTS+=" --log-file ${LOG_FILE}"
 OPTS+=" --load ${CKPT_PATH}"
+OPTS+=" --no_load_strict"
 OPTS+=" --data-path ${DATA_PATH}"
 OPTS+=" --distributed-backend nccl"
 OPTS+=" --tokenizer-path ${TOKENIZER_PATH}"
@@ -52,7 +51,7 @@ OPTS+=" --temperature ${TEMP}"
 OPTS+=" --top_k ${TOPK}"
 OPTS+=" --top_p ${TOPP}"
 
-CMD="python3 -m torch.distributed.launch --master_port 1234 --nproc_per_node ${NUM_GPUS_PER_WORKER} ${WORKING_DIR}/src/eva_finetune.py ${OPTS}"
+CMD="torchrun --master_port 1234 --nproc_per_node ${NUM_GPUS_PER_WORKER} ${WORKING_DIR}/src/eva_finetune.py ${OPTS}"
 
 echo ${CMD}
 mkdir -p ${SAVE_PATH}

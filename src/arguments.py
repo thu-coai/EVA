@@ -198,19 +198,7 @@ def get_args():
 
     args.rank = int(os.getenv("RANK", "0"))
     args.world_size = int(os.getenv("WORLD_SIZE", "1"))
-
-    if os.getenv("OMPI_COMM_WORLD_LOCAL_RANK"):
-        # We are using (OpenMPI) mpirun for launching distributed data parallel processes
-        local_rank = int(os.getenv("OMPI_COMM_WORLD_LOCAL_RANK"))
-        local_size = int(os.getenv("OMPI_COMM_WORLD_LOCAL_SIZE"))
-
-        # Possibly running with Slurm
-        num_nodes = int(os.getenv("SLURM_JOB_NUM_NODES", "1"))
-        nodeid = int(os.getenv("SLURM_NODEID", "0"))
-
-        args.local_rank = local_rank
-        args.rank = nodeid*local_size + local_rank
-        args.world_size = num_nodes*local_size
+    args.local_rank = int(os.getenv("LOCAL_RANK", "0"))
 
     args.model_parallel_size = min(args.model_parallel_size, args.world_size)
     if args.rank == 0:
@@ -220,13 +208,5 @@ def get_args():
     args.dynamic_loss_scale = True
     if args.rank == 0:
         print(" > using dynamic loss scaling")
-
-    # The args fp32_* or fp16_* meant to be active when the
-    # args fp16 is set. So the default behaviour should all
-    # be false.
-    if not args.fp16:
-        args.fp32_embedding = False
-        args.fp32_tokentypes = False
-        args.fp32_layernorm = False
 
     return args

@@ -320,6 +320,10 @@ def train(args, tokenizer, model, optimizer, lr_scheduler, train_dataset, train_
             if step % args.gradient_accumulation_steps == 0:
                 global_step += 1
 
+    # end train
+    if args.save:
+        save_checkpoint(global_step, model, optimizer, lr_scheduler, args)
+
     return global_step
 
 
