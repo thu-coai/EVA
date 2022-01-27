@@ -96,6 +96,15 @@ If things go well, for interactive inference, you will eventually enter an inter
 
 For static inference and finetuning, the code will read the data, start training or inference, and the results can be found in `SAVE_PATH`.
 
+### 3.4 Change the Model Parallism Size
+
+If you find that the memory of a single GPU is not large enough, you can try using `src/change_mp.py` to change the model parallelism size. The `TARGET_MP` in the following command represents the target model parallelism size. The model parallelism size of the downloaded model is 1, which means all model parameters are stored on a single GPU. You can increase the model parallelism size to distribute the parameters to multi GPUs, which can reduce the memory requirement of a single GPU (Of course, you may need more GPUs to train the model). Note that after changing the parallelism size of the downloaded model, you also need to change the `MP_SIZE` in the training/inference scripts to the corresponding model parallelism size.
+
+```[bash]
+cd src/
+python3 change_mp.py ${INPUT_MODEL_DIR} ${OUTPUT_MODEL_DIR} ${TARGET_MP}
+```
+
 ## 4 Results
 
 We use the processed KdConv dataset to finetune and evaluate the model. Under the default hyperparameters in the scripts, we get the following results:
