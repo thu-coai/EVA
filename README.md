@@ -1,8 +1,8 @@
-# EVA: An Open-Domain Chinese Dialogue System with Large-Scale Generative Pre-Training
+# EVA: 大规模中文开放域对话系统
 
 ## 1 项目简介
 
-EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，主要擅长开放域闲聊，目前有 1.0、2.0 三个版本。其中，1.0版本在 WudaoCorpus-Dialog 上训练而成，2.0 版本从 WudaoCorpus-Dialog 中清洗出的在更高质量的对话数据上训练而成，模型性能也明显好于 EVA1.0。EVA1.0 [论文链接](https://arxiv.org/abs/2108.01547)。
+EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，主要擅长开放域闲聊，目前有 1.0、2.0 三个版本。其中，1.0版本在 [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home) 上训练而成，2.0 版本从 WudaoCorpus-Dialog 中清洗出的在更高质量的对话数据上训练而成，模型性能也明显好于 EVA1.0。EVA1.0 [论文链接](https://arxiv.org/abs/2108.01547)。
 
 本仓库中提供了模型交互式评测，模型静态评测，模型微调的代码。
 
@@ -25,7 +25,7 @@ eva/
 
 ### 3.1 环境配置
 
-代码运行需要 CUDA10.2 toolkit。交互式评测大约需要占用 7000MB 显存，静态评测和模型微调占用的显存取决于 batch size 和最大输入长度。经过测试，当前微调的超参数配置可以在 4*32GV100 上跑起来。我们提供了两种配置环境的方式。
+代码运行需要 CUDA10.2 toolkit。交互式评测大约需要占用 7000MB 显存，静态评测和模型微调占用的显存取决于 batch size 和最大输入长度。经过测试，当前微调的超参数配置可以在 4*32G V100 上跑起来。我们提供了两种配置环境的方式。
 
 #### 方式1: 使用 requirements.txt
 
@@ -67,7 +67,7 @@ docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.4 /bin/bash
 
 ### 3.2 准备数据
 
-将训练、验证、测试数据放在一个目录下，该目录中需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，文件的每一行为一个对话样本（展开后），轮次之间用`\t`分隔，最后一轮为模型需要生成的对话，前面的轮次为对话上下文，具体格式可以参考我们给出的预处理好的 [KdConv 数据](https://drive.google.com/file/d/1AO06NvhFA5axZci8hC9IZ6nJEYjkbRKg/view?usp=sharing)。KdConv 原始数据可从[此仓库]((https://github.com/thu-coai/KdConv) )下载。
+将训练、验证、测试数据放在一个目录下，该目录中需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，文件的每一行为一个对话样本（展开后），轮次之间用`\t`分隔，最后一轮为模型需要生成的对话，前面的轮次为对话上下文，具体格式可以参考我们给出的预处理好的 [KdConv 数据](https://drive.google.com/file/d/1AO06NvhFA5axZci8hC9IZ6nJEYjkbRKg/view?usp=sharing)。KdConv 原始数据可从[此仓库](https://github.com/thu-coai/KdConv)下载。
 
 ### 3.3 运行代码
 
@@ -77,7 +77,7 @@ docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.4 /bin/bash
 + 静态评测脚本：`eva_inference_static.sh`
 + 微调脚本：`eva_finetune.sh`
 
-在运行以上脚本之前，需要先将 `WORKING_DIR` 改为此 EVA 目录的路径, 将 `CKPT_PATH` 改为存储预训练 checkpoint 的路径。静态评测和微调还需要将`DATA_PATH`改为3.2中的数据目录，该目录下需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，训练/评测结果存储位置`SAVE_PATH`也可以按照需求修改。其它参数含义可以参考脚本中的注释。
+在运行以上脚本之前，需要先将 `WORKING_DIR` 改为此 EVA 目录的路径, 将 `CKPT_PATH` 改为存储预训练 checkpoint 的路径。静态评测和微调还需要将`DATA_PATH`改为3.2中的数据目录，该目录下需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，训练/评测结果存储位置`SAVE_PATH`也可以按照需求修改。其它参数含义可以参考中 `eva_finetune.sh` 的注释。
 
 **注意**：EVA2.0 与 EVA1.0 在模型结构上有一些差别，在更换模型时请注意同时更换模型配置文件。项目中默认提供 EVA1.0 的模型配置文件：`eva1.0_model_config.json`，EVA2.0 的配置文件为 `eva2.0_model_config.json`。更改执行脚本中的 `CONFIG_PATH` 即可。
 
@@ -88,12 +88,12 @@ cd src/
 bash scripts/eva_inference_interactive_beam.sh # 交互式评测，使用 beam search 解码
 bash scripts/eva_inference_interactive_no_beam.sh # 交互式评测，不使用 beam search 解码
 bash scripts/eva_inference_static.sh # 静态评测
-bash scripts/eva_inference_interactive_beam.sh # 微调模型
+bash scripts/eva_finetune.sh # 微调模型
 ```
 
 **注意**：运行上述命令后, 您需要确定预训练模型加载成功。如果它们加载成功，stdout 中会输出 `successfully loaded /path-to-checkpoint/eva/mp_rank_01_model_states.pt`. 否则，会输出 `WARNING: could not find the metadata file /***/latest_checkpointed_iteration.txt will not load any checkpoints and will start from random`。需要注意的是，当成功加载模型后，程序还会输出 `The following zero checkpoints paths are missing: ['/path-to-checkpoint/eva/200000/zero_pp_rank_0_mp_rank_00_optim_states.pt',...` 一大串 log，说明没有加载优化器的参数。因为本仓库代码只进行评测和微调，是否加载优化器参数没有影响，所以您可以忽略这个 log。
 
-如果上述脚本正常运行，对于交互式评测，您会看到一个交互提示符，可以在后面输入文字和 EVA 对话，输入 `clear` 可以重新开始对话，输入 `seed` 可以设置随机种子。对于静态评测和模型微调，代码会读取数据并启动模型训练和推理。对于微调或静态评测，最后的评测结果存储在 `results/` 中。
+如果上述脚本正常运行，对于交互式评测，您会看到一个交互提示符，可以在后面输入文字和 EVA 对话，输入 `clear` 可以重新开始对话，输入 `seed` 可以设置随机种子。对于静态评测和模型微调，代码会读取数据并启动模型训练和推理，最后的结果存储在 `SAVE_PATH` 中。
 
 ## 4 参考结果
 
@@ -132,7 +132,7 @@ Usr >>> 拜拜喽
 Sys >>> 拜～
 ```
 
-**注意**：由于不同机器的随机函数可能不同，即使使用和我们相同的随机种子，可能仍然无法复现样例结果。但是整体性能应该不会有太大差距。
+**注意**：由于不同硬件的随机函数可能不同，即使使用和我们相同的随机种子，可能仍然无法复现样例结果。但是整体性能应该不会有太大差距。
 
 ## 5 免责声明
 
