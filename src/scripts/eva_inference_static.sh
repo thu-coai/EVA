@@ -9,9 +9,9 @@ NUM_GPUS_PER_WORKER=8
 DATA_PATH="${WORKING_DIR}/data/kdconv"
 
 CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva1.0_model_config.json"
-CKPT_PATH="${WORKING_DIR}/results/inference_static"
+CKPT_PATH="${WORKING_DIR}/checkpoints/eva1.0"
 
-SAVE_PATH="${WORKING_DIR}/results/test_eva_infer_finetune_1.0/"
+SAVE_PATH="${WORKING_DIR}/results/inference_static/"
 LOG_FILE="${SAVE_PATH}/log.txt"
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
