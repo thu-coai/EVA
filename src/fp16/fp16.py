@@ -14,6 +14,7 @@ from .fp16util import model_grads_to_master_grads, master_params_to_model_params
 FLOAT_TYPES = (torch.FloatTensor, torch.cuda.FloatTensor)
 HALF_TYPES = (torch.HalfTensor, torch.cuda.HalfTensor)
 
+
 def conversion_helper(val, conversion):
     """Apply conversion to val. Recursively apply conversion if `val` is a nested tuple/list structure."""
     if not isinstance(val, (tuple, list)):

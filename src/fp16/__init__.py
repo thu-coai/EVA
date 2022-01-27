@@ -1,4 +1,5 @@
 # coding=utf-8
+
 from .fp16util import (
     BN_convert_float,
     network_to_half,

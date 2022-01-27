@@ -8,6 +8,7 @@ from torch.autograd import Variable
 
 import mpu
 
+
 class DistributedDataParallel(Module):
 
     def __init__(self, module):
