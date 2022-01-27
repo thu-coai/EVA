@@ -2,9 +2,9 @@
 
 ## 1 Introduction
 
-EVA is the largest open-source Chinese dialogue model with up to 2.8B parameters. The 1.0 version model is pre-trained on [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home), and the 2.0 version is pre-trained on a carefully cleaned version of WudaoCorpus-Dialog which yields better performance than the 1.0 version. Paper link of EVA1.0: https://arxiv.org/abs/2108.01547.
+EVA is the largest open-source Chinese dialogue model with up to 2.8B parameters. The 1.0 version model is pre-trained on [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home), and the 2.0 version is pre-trained on a carefully cleaned version of WudaoCorpus-Dialog which yields better performance than the 1.0 version. [Paper link](https://arxiv.org/abs/2108.01547) of EVA1.0.
 
-We provide the inference (interactive), inference (static), and finetuning code of EVA in this repo.
+We provide the interactive inference, static inference, and finetuning code of EVA in this repo.
 
 ## 2 Model Download
 EVA1.0 model can be downloaded from [BAAI repository](https://wudaoai.cn/model/detail/EVA), the downloaded directory should look like this:
@@ -47,7 +47,7 @@ The version we used is `v0.3.9`, It can be installed from its [repo](https://git
 ```bash
 pip install deepspeed==0.3.9
 ```
-Since there exist some **bugs** in DeepSpeed, you need to make some little modifications to this package. You can refer to https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11 for more information. Specifically, you need to modify two lines of code in `deepspeed/runtime/zero/stage1.py` and `deepspeed/runtime/engine.py`. We provide the modified `stage1.py` and `engine.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` and `deepspeed/runtime/engine.py` with `engine.py` that we provided. 
+Since there exist some **bugs** in DeepSpeed, you need to make some little modifications to this package. You can refer to this [issue](https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11) for more information. Specifically, you need to modify two lines of code in `deepspeed/runtime/zero/stage1.py` and `deepspeed/runtime/engine.py`. We provide the modified `stage1.py` and `engine.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` and `deepspeed/runtime/engine.py` with `engine.py` that we provided. 
 
 #### Option 2: Docker
 
