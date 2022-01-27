@@ -1,5 +1,7 @@
 # EVA: An Open-Domain Chinese Dialogue System with Large-Scale Generative Pre-Training
 
+[中文版](https://github.com/thu-coai/EVA)
+
 ## 1 Introduction
 
 EVA is the largest open-source Chinese dialogue model with up to 2.8B parameters. The 1.0 version model is pre-trained on [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home), and the 2.0 version is pre-trained on a carefully cleaned version of WudaoCorpus-Dialog which yields better performance than the 1.0 version. [Paper link](https://arxiv.org/abs/2108.01547) of EVA1.0.

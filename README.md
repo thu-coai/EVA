@@ -1,5 +1,7 @@
 # EVA: 大规模中文开放域对话系统
 
+[English version](https://github.com/thu-coai/EVA/blob/main/README_en.md)
+
 ## 1 项目简介
 
 EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，主要擅长开放域闲聊，目前有 1.0、2.0 三个版本。其中，1.0版本在 [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home) 上训练而成，2.0 版本从 WudaoCorpus-Dialog 中清洗出的在更高质量的对话数据上训练而成，模型性能也明显好于 EVA1.0。EVA1.0 [论文链接](https://arxiv.org/abs/2108.01547)。
