@@ -2,9 +2,9 @@
 
 ## 1 Introduction
 
-EVA is the largest open-source Chinese dialogue model with up to 2.8B parameters. The 1.0 version model is pre-trained on [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home), and the 2.0 version is pre-trained on a carefully cleaned version of WudaoCorpus-Dialog which yeilds better performance than 1.0 version. Paper link of EVA1.0: https://arxiv.org/abs/2108.01547.
+EVA is the largest open-source Chinese dialogue model with up to 2.8B parameters. The 1.0 version model is pre-trained on [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home), and the 2.0 version is pre-trained on a carefully cleaned version of WudaoCorpus-Dialog which yields better performance than the 1.0 version. Paper link of EVA1.0: https://arxiv.org/abs/2108.01547.
 
-We provide the inference (interavtive), inference (static) and finetuning code of EVA in this repo.
+We provide the inference (interactive), inference (static), and finetuning code of EVA in this repo.
 
 ## 2 Model Download
 EVA1.0 model can be downloaded from [BAAI repository](https://wudaoai.cn/model/detail/EVA), the downloaded directory should look like this:
@@ -16,7 +16,7 @@ eva/
 ├── latest_checkpointed_iteration.txt
 ```
 
-**Since BAAI institute is still evaluating EVA2.0 model checkpoint, it would take some time for its release.**
+**Since the BAAI institute is still evaluating the EVA2.0 model checkpoint, it would take some time for its release.**
 
 ## 3 Run the Code
 
@@ -24,7 +24,7 @@ The source code is provided in `src/`.
 
 ### 3.1 Environment
 
-The code requires CUDA10.2 toolkit. The interactive inference occupies only about 7000MB GPU memory. The memory consumption of static inference and model finetuning depends on the batch size and the max input length. We find that 4*32 V100 is enough for the code to run under the default hyperparameters in the scripts. We provide 2 options to set up the environment.
+The code requires the CUDA10.2 toolkit. The interactive inference occupies only about 7000MB of GPU memory. The memory consumption of static inference and model finetuning depends on the batch size and the max input length. We find that 4*32 V100 is enough for the code to run under the default hyperparameters in the scripts. We provide 2 options to set up the environment.
 
 #### Option 1: Local setup
 
@@ -52,7 +52,7 @@ Since there exist some **bugs** in DeepSpeed, you need to make some little modif
 #### Option 2: Docker
 
 ```[bash]
-docker pull gyxthu17/eva:1.2
+docker pull gyxthu17/eva:1.4
 ```
 
 Since the environment is ready in the docker, you don't need to set any environment variables. You may need to mount this directory to a directory in the docker. For example, to mount to /mnt, run the following code to run the docker image:
@@ -63,7 +63,7 @@ docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.4 /bin/bash
 
 ### 3.2 Prepare Data
 
-To prepare the data, you need to put training, validation and test datasets under a directory, which contains `train.txt`, `valid.txt` and `test.txt`. Each line in the files is a dialogue sample (after expanding). Different utterances are seperated with `\t` and the last utterance is the response that the model needs to generate. The specific format can be referred to the preprocessed [KdConv data](https://drive.google.com/file/d/1AO06NvhFA5axZci8hC9IZ6nJEYjkbRKg/view?usp=sharing) the original data can be obtained from this [repo](https://github.com/thu-coai/KdConv).
+To prepare the data, you need to put training, validation and, test datasets under a directory, which contains `train.txt`, `valid.txt`, and `test.txt`. Each line in the files is a dialogue sample (after expanding). Different utterances are separated with `\t` and the last utterance is the response that the model needs to generate. The specific format can be referred to the preprocessed [KdConv data](https://drive.google.com/file/d/1AO06NvhFA5axZci8hC9IZ6nJEYjkbRKg/view?usp=sharing) the original data can be obtained from this [repo](https://github.com/thu-coai/KdConv).
 
 
 ### 3.3 Run
@@ -74,7 +74,7 @@ All the scripts to run is in `src/scripts`.
 + Static inference：`eva_inference_static.sh`
 + Finetuning：`eva_finetune.sh`
 
-Before running the code, please change `WORKING_DIR` in the script to the path of this EVA directory, change `CKPT_PATH` to the path where the pre-trained weights are stored. For static inference and finetuning, you need to change `DATA_PATH` to the data path in section 3.2, which contains `train.txt`, `valid.txt` and `test.txt`. You can specify where to store the results by modifying `SAVE_PATH`. The explanations of other parameters can be found in `eva_finetune.sh`.
+Before running the code, please change `WORKING_DIR` in the script to the path of this EVA directory, change `CKPT_PATH` to the path where the pre-trained weights are stored. For static inference and finetuning, you need to change `DATA_PATH` to the data path in section 3.2, which contains `train.txt`, `valid.txt`, and `test.txt`. You can specify where to store the results by modifying `SAVE_PATH`. The explanations of other parameters can be found in `eva_finetune.sh`.
 
 **NOTE:** The model architecture of EVA2.0 and EVA1.0 is slightly different. Therefore, please change the model configuration file by modifying `CONFIG_PATH` if you switch the base model. 
 
@@ -92,11 +92,11 @@ bash scripts/eva_finetune.sh # finetune the model
 
 If things go well, for interactive inference, you will eventually enter an interactive interface. You can chat with EVA by typing after `>>>`. When you input `clear`, the dialogue history will be cleared and the conversation will start over. When you input `seed`, you can change the random seed. 
 
-For static inference and finetuning, the code will read the data, start training / inference, and the results can be found in `SAVE_PATH`.
+For static inference and finetuning, the code will read the data, start training or inference, and the results can be found in `SAVE_PATH`.
 
 ## 4 Results
 
-We use the processed KdConv dataset to finetune and evaluate the model. Under the default hyperparameters in the scripts, we get following results:
+We use the processed KdConv dataset to finetune and evaluate the model. Under the default hyperparameters in the scripts, we get the following results:
 
 |                        |      |        |        |       |
 | ----                   | ---- | ----   | ----   | ----  |
@@ -131,7 +131,7 @@ Usr >>> 拜拜喽
 Sys >>> 拜～
 ```
 
-**NOET**: Since difference hardwares may have different implementation of random functions, even if you use the same random seed as ours, you may not be able to reproduce this case. But the overall performance will not differ much.
+**NOET**: Since different hardware may have different implementations of random functions, even if you use the same random seed as ours, you may not be able to reproduce this case. But the overall performance will not differ much.
 
 ## 5 Disclaimer
 
