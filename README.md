@@ -53,7 +53,7 @@ pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp
 pip install deepspeed==0.3.9
 ```
 
-由于此版本的 deepspeed 有一些 **bug**，您可能需要对安装后的 python 包做一些修改。关于 bug 的具体信息您可以参考[此问题](https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11) 。简单来说，您需要修改 `deepspeed/runtime/zero/stage1.py` 与 `deepspeed/runtime/engine.py` 中的几行代码。 我们在仓库中提供了修改后的 `stage1.py` 与 `engine.py`。您只需要将 `deepspeed/runtime/zero/stage1.py` 替换为 `stage1.py`，`deepspeed/runtime/engine.py` 替换为 `engine.py` 即可。
+由于此版本的 deepspeed 有一些 **bug**，您可能需要对安装后的 python 包做一些修改。关于 bug 的具体信息您可以参考[此问题](https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11) 。简单来说，您需要修改 `${PATH_TO_PYTHON_SITE_PACKAGE}/deepspeed/runtime/zero/stage1.py` 与 `${PATH_TO_PYTHON_SITE_PACKAGE}/deepspeed/runtime/engine.py` 中的几行代码。 我们在仓库中提供了修改后两个文件：`src/ds_fix/stage1.py` 与 `src/ds_fix/engine.py`。您只需要将 `${PATH_TO_PYTHON_SITE_PACKAGE}/deepspeed/runtime/zero/stage1.py` 替换为 `src/ds_fix/stage1.py`，`${PATH_TO_PYTHON_SITE_PACKAGE}/deepspeed/runtime/engine.py` 替换为 `src/ds_fix/engine.py` 即可。
 
 #### 方式2: 使用 Docker
 
