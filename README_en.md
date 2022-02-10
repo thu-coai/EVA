@@ -49,7 +49,7 @@ The version we used is `v0.3.9`, It can be installed from its [repo](https://git
 ```bash
 pip install deepspeed==0.3.9
 ```
-Since there exist some **bugs** in DeepSpeed, you need to make some little modifications to this package. You can refer to this [issue](https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11) for more information. Specifically, you need to modify two lines of code in `deepspeed/runtime/zero/stage1.py` and `deepspeed/runtime/engine.py`. We provide the modified `stage1.py` and `engine.py` in our repo. You can simply replace `deepspeed/runtime/zero/stage1.py` with `stage1.py` and `deepspeed/runtime/engine.py` with `engine.py` that we provided. 
+Since there exist some **bugs** in DeepSpeed, you need to make some little modifications to this package. You can refer to this [issue](https://github.com/TsinghuaAI/CPM-2-Finetune/issues/11) for more information. Specifically, you need to modify two lines of code in `${PATH_TO_PYTHON_SITE_PACKAGE}/deepspeed/runtime/zero/stage1.py` and `${PATH_TO_PYTHON_SITE_PACKAGE}/deepspeed/runtime/engine.py`. We provide the modified `src/ds_fix/stage1.py` and `src/ds_fix/engine.py` in our repo. You can simply replace `${PATH_TO_PYTHON_SITE_PACKAGE}/deepspeed/runtime/zero/stage1.py` with `stage1.py` and `${PATH_TO_PYTHON_SITE_PACKAGE}/deepspeed/runtime/engine.py` with `engine.py` that we provided. 
 
 #### Option 2: Docker
 
