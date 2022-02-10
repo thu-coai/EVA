@@ -107,11 +107,11 @@ python3 change_mp.py ${INPUT_MODEL_DIR} ${OUTPUT_MODEL_DIR} ${TARGET_MP}
 
 ## 4 Results
 
-We use the processed KdConv dataset to finetune and evaluate the model. Under the default hyperparameters in the scripts, we get the following results:
+We use the processed KdConv dataset to finetune and evaluate the model. Under the default hyperparameters in the scripts, we get the following results on the test set:
 
 |                        |      |        |        |       |
 | ----                   | ---- | ----   | ----   | ----  |
-|                        | ppl. | BLEU-4 | Dist-4 | f1    |
+|                        | loss | BLEU-4 | Dist-4 | f1    |
 | eva1.0 Before finetune     | 3.49 | 0.64   | 85.94  | 13.24 |  
 | eva1.0 After finetune    | 2.37 | 3.94   | 72.47  | 19.80 |
 | eva2.0 Before finetune     | 3.14 | 1.02   | 82.67  | 14.36 |  
