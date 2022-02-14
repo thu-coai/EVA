@@ -269,7 +269,6 @@ def postprocess_next_token_scores(
 
 
 def generate_no_beam(model_batch, full_context, model, tokenizer: EVATokenizer, args, device):
-    batch_size = args.batch_size
     target_length = args.max_generation_length
     
     dec_init_length = 1 # +1 for s_0
@@ -283,6 +282,8 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EVATokenizer, 
     )
     enc_hidden_states = enc_outputs["encoder_last_hidden_state"]
     
+    batch_size = enc_input_ids.size(0)
+
     # for generating responses
     # we only use the <go> token, so truncate other tokens
     dec_input_ids = model_batch['dec_input_ids'][..., :dec_init_length]
@@ -364,7 +365,6 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
     '''
         Since the context in model batch is truncated, we need full_context to store the tokens in the entire context.
     '''
-    batch_size = args.batch_size
     num_beams = args.num_beams
     target_length = args.max_generation_length
     
@@ -375,6 +375,7 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
     enc_attention_mask = model_batch['enc_attention_mask']
     
     enc_input_length = enc_input_ids.size(-1)
+    batch_size = enc_input_ids.size(0)
     enc_input_ids = enc_input_ids.unsqueeze(1).expand(batch_size, num_beams, enc_input_length)
     enc_attention_mask = enc_attention_mask.unsqueeze(1).expand(batch_size, num_beams, 1, enc_input_length, enc_input_length)
     
