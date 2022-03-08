@@ -3,7 +3,7 @@ numpy>=1.15.4
 sentencepiece>=0.1.8
 tensorflow>=1.12.0
 regex>=2021.8.3
-torch
+torch==1.10.1
 pandas
 nltk
 sentencepiece

@@ -58,7 +58,7 @@ pip install deepspeed==0.3.9
 #### 方式2: 使用 Docker
 
 ```[bash]
-docker pull gyxthu17/eva:1.4
+docker pull gyxthu17/eva:1.5
 ```
 
 因为上述环境已经在 docker 中预装，您不需要再设置任何环境变量了。为了运行代码，您可能需要将此仓库挂在到 docker 中的目录，例如，`/mnt` 目录。为此，您可以运行如下代码：
