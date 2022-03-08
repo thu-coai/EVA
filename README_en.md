@@ -54,13 +54,13 @@ Since there exist some **bugs** in DeepSpeed, you need to make some little modif
 #### Option 2: Docker
 
 ```[bash]
-docker pull gyxthu17/eva:1.4
+docker pull gyxthu17/eva:1.5
 ```
 
 Since the environment is ready in the docker, you don't need to set any environment variables. You may need to mount this directory to a directory in the docker. For example, to mount to /mnt, run the following code to run the docker image:
 
 ```[bash]
-docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.4 /bin/bash
+docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.5 /bin/bash
 ```
 
 ### 3.2 Prepare Data
