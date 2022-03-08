@@ -221,7 +221,7 @@ def main():
     #setting default batch size to 1
     args.batch_size = 1
     # os.system('clear')
-    print('Model Loaded!')
+    print('Start Inference')
     #generate samples
     generate_samples(model, tokenizer, args, torch.cuda.current_device())
     

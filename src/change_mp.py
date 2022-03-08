@@ -11,17 +11,19 @@ def merge(model_parts):
         return model_parts[0]
     
     new_model = {}
-    for k, v in model_parts.items():
+    for k, v in model_parts[0].items():
         assert len(v.size()) < 3
         if len(v.shape) == 2 and "role_embeds.weight" not in k:
             if 'project.weight' in k:
                 part = v.shape[0] // 3
-                new_model[k] = torch.cat([model[k][i*part:(i+1)*part, :] for model in model_parts for i in range(3)], dim=0)
+                tmp_model = [[model[k][i*part:(i+1)*part, :] for model in model_parts] for i in range(3)]
+                new_model[k] = torch.cat([x for y in tmp_model for x in y], dim=0)
             elif 'project_q.weight' in k:
                 new_model[k] = torch.cat([model[k] for model in model_parts], dim=0)
             elif 'project_kv.weight' in k:
                 part = v.shape[0] // 2
-                new_model[k] = torch.cat([model[k][i*part:(i+1)*part, :] for model in model_parts for i in range(2)], dim=0)
+                tmp_model = [[model[k][i*part:(i+1)*part, :] for model in model_parts] for i in range(2)]
+                new_model[k] = torch.cat([x for y in tmp_model for x in y], dim=0)
             elif any([x in k for x in ['word_embeds.weight', 'dense_relu_dense.wi_1.weight', 'dense_relu_dense.wi_0.weight', 'lm_head.weight']]):
                 new_model[k] = torch.cat([model[k] for model in model_parts], dim=0)
             else:
@@ -34,6 +36,9 @@ def merge(model_parts):
 
 def split(model, mp):
     print("Spliting model")
+    if mp == 1:
+        return [model]
+
     new_model_parts = []
     if mp == 1:
         new_model_parts.append(model)
@@ -116,7 +121,7 @@ def main():
 
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(os.path.join(output_dir, str(iter)), exist_ok=True)
-    with open(os.path.join(output_dir, str(iter), "latest_checkpointed_iteration.txt"), "w") as f:
+    with open(os.path.join(output_dir, "latest_checkpointed_iteration.txt"), "w") as f:
         f.write(str(iter) + "\n")
 
     for i, model_part in enumerate(new_model_parts):

@@ -269,7 +269,7 @@ def postprocess_next_token_scores(
 
 
 def generate_no_beam(model_batch, full_context, model, tokenizer: EVATokenizer, args, device):
-    batch_size = args.batch_size
+    batch_size = model_batch['enc_input_ids'].size(0)
     target_length = args.max_generation_length
     
     dec_init_length = 1 # +1 for s_0
@@ -364,7 +364,7 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
     '''
         Since the context in model batch is truncated, we need full_context to store the tokens in the entire context.
     '''
-    batch_size = args.batch_size
+    batch_size = model_batch['enc_input_ids'].size(0)
     num_beams = args.num_beams
     target_length = args.max_generation_length
     
