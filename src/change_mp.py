@@ -101,7 +101,7 @@ def main():
     filenames = [os.path.join(model_dir, x) for x in filenames]
     print("Model files:", filenames)
 
-    ckpt_parts = [torch.load(filename) for filename in filenames]
+    ckpt_parts = [torch.load(filename, map_location="cpu") for filename in filenames]
     model_parts = [ckpt["module"] for ckpt in ckpt_parts]
     new_model = merge(model_parts)
     new_model_parts = split(new_model, target_mp)
