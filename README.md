@@ -4,13 +4,13 @@
 
 ## 1 项目简介
 
-EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，主要擅长开放域闲聊，目前有 1.0 和 2.0 两个版本。其中，1.0版本在 [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home) 上训练而成，2.0 版本在从 WudaoCorpus-Dialog 中清洗出的更高质量的对话数据上训练而成，模型性能也明显好于 EVA1.0。EVA1.0 [论文链接](https://arxiv.org/abs/2108.01547)。
+EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，主要擅长开放域闲聊，目前有 1.0 和 2.0 两个版本。其中，1.0版本在 [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home) 上训练而成，2.0 版本在从 WudaoCorpus-Dialog 中清洗出的更高质量的对话数据上训练而成，模型性能也明显好于 EVA1.0。EVA1.0 [论文链接](https://arxiv.org/abs/2108.01547)，EVA2.0 [论文链接](https://arxiv.org/abs/2203.09313)。
 
 本仓库中提供了模型交互式评测，模型静态评测，模型微调的代码。
 
 ## 2 模型下载
 
-EVA1.0 模型可以从[智源下载专区](https://wudaoai.cn/model/detail/EVA)下载，下载后的目录应该具有如下结构：
+EVA1.0 和 EVA2.0 模型可以从[智源下载专区](https://wudaoai.cn/model/detail/EVA)下载，EVA1.0 下载后的目录应该具有如下结构：
 
 ```[bash]
 eva/
@@ -19,7 +19,14 @@ eva/
 ├── latest_checkpointed_iteration.txt
 ```
 
-**由于智源研究院正在对 EVA2.0 模型进行评估，其模型参数的开源仍需要一定的时间。**
+EVA2.0 下载后的目录应该具有如下结构：
+
+```[bash]
+eva2/
+├── 1
+│   └── mp_rank_00_model_states.pt
+├── latest_checkpointed_iteration.txt
+```
 
 ## 3 运行
 
@@ -152,9 +159,9 @@ Sys >>> 拜～
 ## 6 TODO
 
 + ~~finetune 代码整理与开源~~
++ ~~EVA2.0 模型下载链接~~
++ ~~EVA2.0 技术报告~~
 + huggingface 版本的模型/对应代码
-+ EVA2.0 模型下载链接
-+ EVA2.0 技术报告
 + 开源小规模模型
 + 预训练数据处理代码开源
 
@@ -166,5 +173,11 @@ Sys >>> 拜～
   author={Zhou, Hao and Ke, Pei and Zhang, Zheng and Gu, Yuxian and Zheng, Yinhe and Zheng, Chujie and Wang, Yida and Wu, Chen Henry and Sun, Hao and Yang, Xiaocong and Wen, Bosi and Zhu, Xiaoyan and Huang, Minlie and Tang, Jie},
   journal={arXiv preprint arXiv:2108.01547},
   year={2021}
+}
+@article{coai2022eva2,
+  title={EVA2.0: Investigating Open-Domain Chinese Dialogue Systems with Large-Scale Pre-Training},
+  author={Yuxian Gu, Jiaxin Wen, Hao Sun, Yi Song, Pei Ke, Chujie Zheng, Zheng Zhang, Jianzhu Yao, Xiaoyan Zhu, Jie Tang, Minlie Huang},
+  journal={arXiv preprint arXiv:2108.01547},
+  year={2022}
 }
 ```
