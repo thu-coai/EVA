@@ -2,6 +2,12 @@
 
 [中文版](https://github.com/thu-coai/EVA)
 
+## :star2:Update
+
+- March 2022: Release the EVA2.0 pre-trained model and [our paper](https://arxiv.org/abs/2203.09313) 
+- Jan 2022: Release the fine-tuning code.
+- Aug 2021: Release the EVA1.0 pre-trained model, the interacting code, and [our paper](https://arxiv.org/abs/2108.01547).
+
 ## 1 Introduction
 
 EVA is the largest open-source Chinese dialogue model with up to 2.8B parameters. The 1.0 version model is pre-trained on [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home), and the 2.0 version is pre-trained on a carefully cleaned version of WudaoCorpus-Dialog which yields better performance than the 1.0 version. [Paper link](https://arxiv.org/abs/2108.01547) of EVA1.0. [Paper link](https://arxiv.org/abs/2203.09313) of EVA2.0.
