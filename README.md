@@ -2,6 +2,12 @@
 
 [English version](https://github.com/thu-coai/EVA/blob/main/README_en.md)
 
+## :star2:更新
+
+- 2022.3: 开源EVA2.0模型，发布EVA2.0的[论文](https://arxiv.org/abs/2203.09313)。
+- 2022.1: 开源fine-tune代码。
+- 2021.8: 开源EVA1.0模型及交互代码，发布EVA1.0的[论文](https://arxiv.org/abs/2108.01547)。
+
 ## 1 项目简介
 
 EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，主要擅长开放域闲聊，目前有 1.0 和 2.0 两个版本。其中，1.0版本在 [WudaoCorpus-Dialog](https://resource.wudaoai.cn/home) 上训练而成，2.0 版本在从 WudaoCorpus-Dialog 中清洗出的更高质量的对话数据上训练而成，模型性能也明显好于 EVA1.0。EVA1.0 [论文链接](https://arxiv.org/abs/2108.01547)，EVA2.0 [论文链接](https://arxiv.org/abs/2203.09313)。
