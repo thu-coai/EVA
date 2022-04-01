@@ -2,6 +2,7 @@
 
 import os
 import torch
+import mpu
 
 import torch.nn.functional as F
 
@@ -313,7 +314,12 @@ def generate_no_beam(model_batch, full_context, model, tokenizer: EVATokenizer, 
                 past_key_values=past_key_values,
             )
             past_key_values = dec_outputs['past_key_values']
-            lm_logits = dec_outputs["lm_logits"]
+            lm_logits = dec_outputs['lm_logits']
+            
+            gathered_lm_logits = [torch.zeros_like(lm_logits).to(device) for _ in range(mpu.get_model_parallel_world_size())]
+            torch.distributed.all_gather(gathered_lm_logits, lm_logits.data, mpu.get_model_parallel_group())
+            lm_logits = torch.cat(gathered_lm_logits, dim=-1)
+
             logits = lm_logits[:, -1, :] / args.temperature
 
             prev_output_tokens = torch.cat([full_context, output_ids], dim=-1)
@@ -435,6 +441,10 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
         )
         past_key_values = dec_outputs['past_key_values']
         lm_logits = dec_outputs["lm_logits"]
+
+        gathered_lm_logits = [torch.zeros_like(lm_logits).to(device) for _ in range(mpu.get_model_parallel_world_size())]
+        torch.distributed.all_gather(gathered_lm_logits, lm_logits.data, mpu.get_model_parallel_group())
+        lm_logits = torch.cat(gathered_lm_logits, dim=-1)
 
         logits = lm_logits[:, -1, :] / args.temperature
         scores = F.log_softmax(logits, dim=-1)
