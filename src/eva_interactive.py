@@ -156,29 +156,47 @@ def generate_samples(model, tokenizer: EVATokenizer, args, device):
     with torch.no_grad():
         full_context_list = []
         while True:
-            input_text = input("Usr >>> ")
-            if input_text == "clear":
-                print("Clear Dialog")
-                # set_random_seed(args.seed) # reset rng
-                full_context_list = []
-                continue
-            if input_text == "seed":
-                seed = int(input("Seed >>> "))
-                print("Clear Dialog")
-                set_random_seed(seed)
-                full_context_list = []
-                continue
+            if dist.get_rank() == 0:
+                input_text = input("Usr >>> ")
+                if input_text == "clear":
+                    print("Clear Dialog")
+                    # set_random_seed(args.seed) # reset rng
+                    full_context_list = []
+                    length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
+                    continue
+                if input_text == "seed":
+                    seed = int(input("Seed >>> "))
+                    print("Clear Dialog")
+                    set_random_seed(seed)
+                    full_context_list = []
+                    length_tensor = torch.tensor([-1], dtype=torch.long).to(device)
+                    continue
+                else:
+                    full_context_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id])
+                    full_context = [x for y in full_context_list for x in y]
+                    trunc_context = []
+                    for utt in full_context_list[:-9:-1]:
+                        if len(trunc_context) + len(utt) + 1 <= 128:
+                            trunc_context = utt + trunc_context
+                    trunc_context.append(tokenizer.get_sentinel_id(0))
+                    length_tensor = torch.tensor([len(trunc_context), len(full_context)], dtype=torch.long).to(device)
+                    trunc_context = torch.tensor(trunc_context, dtype=torch.long).to(device)
+                    full_context = torch.tensor(full_context, dtype=torch.long).to(device)
+                    
             else:
-                full_context_list.append(tokenizer.encode(input_text) + [tokenizer.sep_id])
-                full_context = [x for y in full_context_list for x in y]
-                trunc_context = []
-                for utt in full_context_list[:-9:-1]:
-                    if len(trunc_context) + len(utt) + 1 <= 128:
-                        trunc_context = utt + trunc_context
-                trunc_context.append(tokenizer.get_sentinel_id(0))
-                trunc_context = torch.tensor(trunc_context, dtype=torch.long).to(device)
-                full_context = torch.tensor(full_context, dtype=torch.long).to(device)
-            
+                length_tensor = torch.zeros(2, dtype=torch.long).to(device)
+
+            dist.barrier()
+            dist.broadcast(length_tensor, 0)
+            if length_tensor[0] < 0:
+                continue
+            if dist.get_rank() != 0:
+                trunc_context = torch.zeros(int(length_tensor[0]), dtype=torch.long).to(device)
+                full_context = torch.zeros(int(length_tensor[1]), dtype=torch.long).to(device)
+            dist.broadcast(trunc_context, 0)
+            dist.broadcast(full_context, 0)
+
+
             # encoder tensor
             trunc_context = trunc_context.unsqueeze(0).repeat(args.batch_size, 1) # repeat
             full_context = full_context.unsqueeze(0).repeat(args.batch_size, 1) 
