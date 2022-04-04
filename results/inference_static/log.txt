@@ -1,2 +1,0 @@
-Total train epochs 3 | Total train iters 10 | 
-Path: /home/leichangsong/transformers/data/test.txt | Ratio:1 | Max enc len: 128 | Max dec len: 128 | Data num: 8837
