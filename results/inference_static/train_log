@@ -1,0 +1,85 @@
+using world size: 1 and model-parallel size: 1 
+ > using dynamic loss scaling
+Pretrain Enc-Dec model
+arguments:
+  model_config ................. /home/leichangsong/eva-huggingface/model_config/eva2.0_model_config.json
+  model_parallel_size .......... 1
+  fp16 ......................... False
+  do_train ..................... False
+  do_valid ..................... False
+  do_eval ...................... True
+  train_ratio .................. 1
+  valid_ratio .................. 1
+  test_ratio ................... 1
+  batch_size ................... 4
+  gradient_accumulation_steps .. 1
+  train_iters .................. -1
+  epochs ....................... 3
+  weight_decay ................. 0.01
+  checkpoint_activations ....... False
+  checkpoint_num_layers ........ 1
+  deepspeed_activation_checkpointing  False
+  clip_grad .................... 1.0
+  seed ......................... 422
+  lr_decay_style ............... linear
+  lr ........................... 0.0001
+  warmup ....................... 0.01
+  load ......................... /home/leichangsong/another.pt
+  load_optimizer_states ........ False
+  load_lr_scheduler_states ..... False
+  no_load_strict ............... True
+  save ......................... /home/leichangsong/eva-huggingface/results/inference_static/
+  save_interval ................ 10
+  log_file ..................... /home/leichangsong/eva-huggingface/results/inference_static//log.txt
+  log_interval ................. 5
+  distributed_backend .......... nccl
+  local_rank ................... 0
+  eval_batch_size .............. 4
+  eval_interval ................ 10
+  eval_generation .............. True
+  temperature .................. 0.9
+  top_p ........................ 0.9
+  top_k ........................ 0
+  max_generation_length ........ 128
+  min_generation_length ........ 2
+  num_beams .................... 4
+  no_repeat_ngram_size ......... 3
+  repetition_penalty ........... 1.6
+  early_stopping ............... False
+  length_penalty ............... 1.8
+  rule_path .................... /home/leichangsong/eva-huggingface/rules
+  data_path .................... /home/leichangsong/transformers/data
+  cache_path ................... None
+  tokenizer_path ............... /home/leichangsong/eva-huggingface/vocab
+  data_ext ..................... .txt
+  num_workers .................. 2
+  enc_seq_length ............... 128
+  dec_seq_length ............... 128
+  deepspeed .................... False
+  deepspeed_config ............. None
+  deepscale .................... False
+  deepscale_config ............. None
+  deepspeed_mpi ................ False
+  cuda ......................... True
+  rank ......................... 0
+  world_size ................... 1
+  dynamic_loss_scale ........... True
+Some weights of the model checkpoint at /home/leichangsong/another.pt were not used when initializing EVAModel: ['random_rng_state', 'torch_rng_state', 'global_samples', 'lr_scheduler', 'cuda_rng_state', 'np_rng_state', 'rng_tracker_states', 'iteration', 'mp_world_size', 'skipped_steps', 'optimizer', 'csr_tensor_module_names', 'module', 'global_steps', 'dp_world_size']
+- This IS expected if you are initializing EVAModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing EVAModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Total train epochs 3 | Total train iters 10 | 
+building Enc-Dec model ...
+No cache, processing data
+Loading data from /home/leichangsong/transformers/data/test.txt:   0%|          | 0/8837 [00:00<?, ?it/s]Building prefix dict from the default dictionary ...
+Loading model from cache /tmp/jieba.cache
+Dumping model to file cache /tmp/jieba.cache
+Dump cache file failed.
+Traceback (most recent call last):
+  File "/home/leichangsong/miniconda3/envs/eva/lib/python3.8/site-packages/jieba/__init__.py", line 154, in initialize
+    _replace_file(fpath, cache_file)
+PermissionError: [Errno 1] Operation not permitted: '/tmp/tmpjq79h1ps' -> '/tmp/jieba.cache'
+Loading model cost 0.600 seconds.
+Prefix dict has been built successfully.
+Loading data from /home/leichangsong/transformers/data/test.txt:   0%|          | 1/8837 [00:00<1:28:32,  1.66it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   1%|          | 65/8837 [00:00<01:10, 124.00it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   1%|          | 109/8837 [00:01<01:19, 110.24it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   2%|▏         | 169/8837 [00:01<00:47, 183.41it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   3%|▎         | 244/8837 [00:01<00:30, 282.10it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   4%|▎         | 310/8837 [00:01<00:23, 357.47it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   4%|▍         | 386/8837 [00:01<00:18, 446.98it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   5%|▌         | 457/8837 [00:01<00:16, 509.87it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   6%|▌         | 544/8837 [00:01<00:13, 600.19it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   7%|▋         | 616/8837 [00:01<00:13, 628.54it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   8%|▊         | 688/8837 [00:01<00:12, 636.49it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   9%|▊         | 761/8837 [00:02<00:12, 662.31it/s]Loading data from /home/leichangsong/transformers/data/test.txt:   9%|▉         | 832/8837 [00:02<00:12, 618.42it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  10%|█         | 905/8837 [00:02<00:12, 645.59it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  11%|█         | 973/8837 [00:02<00:12, 620.00it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  12%|█▏        | 1039/8837 [00:02<00:12, 629.21it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  12%|█▏        | 1104/8837 [00:02<00:12, 626.03it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  13%|█▎        | 1192/8837 [00:02<00:10, 695.84it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  14%|█▍        | 1267/8837 [00:02<00:10, 707.72it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  15%|█▌        | 1339/8837 [00:02<00:11, 655.35it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  16%|█▌        | 1406/8837 [00:03<00:11, 638.58it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  17%|█▋        | 1476/8837 [00:03<00:11, 654.84it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  17%|█▋        | 1545/8837 [00:03<00:10, 664.45it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  18%|█▊        | 1613/8837 [00:03<00:10, 668.15it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  19%|█▉        | 1684/8837 [00:03<00:10, 678.82it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  20%|██        | 1769/8837 [00:03<00:09, 728.77it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  21%|██        | 1843/8837 [00:03<00:09, 719.98it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  22%|██▏       | 1923/8837 [00:03<00:09, 743.22it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  23%|██▎       | 1998/8837 [00:03<00:09, 721.66it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  23%|██▎       | 2071/8837 [00:04<00:09, 687.29it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  24%|██▍       | 2141/8837 [00:04<00:10, 669.15it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  25%|██▍       | 2209/8837 [00:04<00:10, 657.86it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  26%|██▌       | 2276/8837 [00:04<00:10, 642.19it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  27%|██▋       | 2355/8837 [00:04<00:09, 682.65it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  27%|██▋       | 2424/8837 [00:04<00:09, 667.69it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  28%|██▊       | 2493/8837 [00:04<00:09, 669.39it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  29%|██▉       | 2568/8837 [00:04<00:09, 691.43it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  30%|██▉       | 2638/8837 [00:04<00:09, 685.88it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  31%|███       | 2711/8837 [00:04<00:08, 697.68it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  32%|███▏      | 2785/8837 [00:05<00:08, 709.46it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  32%|███▏      | 2857/8837 [00:05<00:08, 707.20it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  33%|███▎      | 2931/8837 [00:05<00:08, 715.33it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  34%|███▍      | 3003/8837 [00:05<00:08, 694.43it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  35%|███▍      | 3073/8837 [00:05<00:08, 689.64it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  36%|███▌      | 3143/8837 [00:05<00:08, 663.85it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  36%|███▋      | 3210/8837 [00:05<00:08, 660.81it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  37%|███▋      | 3277/8837 [00:05<00:09, 605.46it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  38%|███▊      | 3342/8837 [00:05<00:08, 616.95it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  39%|███▊      | 3413/8837 [00:06<00:08, 641.70it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  39%|███▉      | 3478/8837 [00:06<00:08, 622.91it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  40%|████      | 3548/8837 [00:06<00:08, 643.90it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  41%|████      | 3613/8837 [00:06<00:08, 643.58it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  42%|████▏     | 3684/8837 [00:06<00:07, 658.69it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  43%|████▎     | 3769/8837 [00:06<00:07, 714.14it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  44%|████▎     | 3863/8837 [00:06<00:06, 777.52it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  45%|████▍     | 3954/8837 [00:06<00:05, 816.55it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  46%|████▌     | 4052/8837 [00:06<00:05, 863.79it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  47%|████▋     | 4146/8837 [00:06<00:05, 883.89it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  48%|████▊     | 4243/8837 [00:07<00:05, 909.12it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  49%|████▉     | 4335/8837 [00:07<00:05, 881.90it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  50%|█████     | 4440/8837 [00:07<00:04, 926.87it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  52%|█████▏    | 4554/8837 [00:07<00:04, 987.96it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  53%|█████▎    | 4654/8837 [00:07<00:04, 987.73it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  54%|█████▍    | 4753/8837 [00:07<00:04, 982.74it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  55%|█████▍    | 4853/8837 [00:07<00:04, 986.20it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  56%|█████▌    | 4957/8837 [00:07<00:03, 999.07it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  57%|█████▋    | 5060/8837 [00:07<00:03, 1006.74it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  58%|█████▊    | 5161/8837 [00:07<00:03, 955.04it/s] Loading data from /home/leichangsong/transformers/data/test.txt:  59%|█████▉    | 5258/8837 [00:08<00:03, 955.42it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  61%|██████    | 5356/8837 [00:08<00:03, 959.18it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  62%|██████▏   | 5462/8837 [00:08<00:03, 985.67it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  63%|██████▎   | 5566/8837 [00:08<00:03, 999.64it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  64%|██████▍   | 5667/8837 [00:08<00:03, 975.82it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  65%|██████▌   | 5770/8837 [00:08<00:03, 990.41it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  66%|██████▋   | 5870/8837 [00:08<00:03, 966.63it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  68%|██████▊   | 5972/8837 [00:08<00:02, 981.22it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  69%|██████▉   | 6076/8837 [00:08<00:02, 997.87it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  70%|██████▉   | 6181/8837 [00:09<00:02, 1009.36it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  71%|███████   | 6283/8837 [00:09<00:02, 1000.60it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  72%|███████▏  | 6384/8837 [00:09<00:02, 988.85it/s] Loading data from /home/leichangsong/transformers/data/test.txt:  74%|███████▎  | 6500/8837 [00:09<00:02, 1038.28it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  75%|███████▍  | 6608/8837 [00:09<00:02, 1047.02it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  76%|███████▌  | 6715/8837 [00:09<00:02, 1050.43it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  77%|███████▋  | 6821/8837 [00:09<00:01, 1048.36it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  78%|███████▊  | 6927/8837 [00:09<00:01, 1049.16it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  80%|███████▉  | 7032/8837 [00:09<00:01, 1009.44it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  81%|████████  | 7134/8837 [00:09<00:01, 933.80it/s] Loading data from /home/leichangsong/transformers/data/test.txt:  82%|████████▏ | 7238/8837 [00:10<00:01, 962.48it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  83%|████████▎ | 7339/8837 [00:10<00:01, 975.88it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  84%|████████▍ | 7438/8837 [00:10<00:01, 960.09it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  85%|████████▌ | 7551/8837 [00:10<00:01, 1007.14it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  87%|████████▋ | 7653/8837 [00:10<00:01, 957.55it/s] Loading data from /home/leichangsong/transformers/data/test.txt:  88%|████████▊ | 7751/8837 [00:10<00:01, 961.20it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  89%|████████▉ | 7861/8837 [00:10<00:00, 996.40it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  90%|█████████ | 7962/8837 [00:10<00:00, 923.46it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  91%|█████████ | 8056/8837 [00:10<00:00, 908.69it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  92%|█████████▏| 8160/8837 [00:11<00:00, 942.52it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  94%|█████████▎| 8269/8837 [00:11<00:00, 979.85it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  95%|█████████▍| 8370/8837 [00:11<00:00, 987.52it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  96%|█████████▌| 8474/8837 [00:11<00:00, 999.59it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  97%|█████████▋| 8575/8837 [00:11<00:00, 919.28it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  98%|█████████▊| 8669/8837 [00:11<00:00, 910.34it/s]Loading data from /home/leichangsong/transformers/data/test.txt:  99%|█████████▉| 8782/8837 [00:11<00:00, 971.51it/s]Loading data from /home/leichangsong/transformers/data/test.txt: 100%|██████████| 8837/8837 [00:11<00:00, 753.76it/s]Cache path is None, no cache saved
+Path: /home/leichangsong/transformers/data/test.txt | Ratio:1 | Max enc len: 128 | Max dec len: 128 | Data num: 8837
+
