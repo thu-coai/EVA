@@ -56,7 +56,7 @@ class EVADataset(Dataset):
             line = line.strip().split("\t")
             line = [self.tokenizer.encode(utt) for utt in line]
             if len(line) == 1:
-                context = line[0]
+                context = line
                 target = [0, 0] # empty dial
             else:
                 context = line[:-1]
