@@ -183,7 +183,7 @@ Sys >>> 拜～
 @article{coai2022eva2,
   title={EVA2.0: Investigating Open-Domain Chinese Dialogue Systems with Large-Scale Pre-Training},
   author={Yuxian Gu, Jiaxin Wen, Hao Sun, Yi Song, Pei Ke, Chujie Zheng, Zheng Zhang, Jianzhu Yao, Xiaoyan Zhu, Jie Tang, Minlie Huang},
-  journal={arXiv preprint arXiv:2108.01547},
+  journal={arXiv preprint arXiv:2203.09313},
   year={2022}
 }
 ```
