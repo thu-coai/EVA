@@ -180,9 +180,9 @@ Sys >>> 拜～
   journal={arXiv preprint arXiv:2108.01547},
   year={2021}
 }
-@article{coai2022eva2,
-  title={EVA2.0: Investigating Open-Domain Chinese Dialogue Systems with Large-Scale Pre-Training},
-  author={Yuxian Gu, Jiaxin Wen, Hao Sun, Yi Song, Pei Ke, Chujie Zheng, Zheng Zhang, Jianzhu Yao, Xiaoyan Zhu, Jie Tang, Minlie Huang},
+@article{gu2022eva2,
+  title={Eva2. 0: Investigating open-domain chinese dialogue systems with large-scale pre-training},
+  author={Gu, Yuxian and Wen, Jiaxin and Sun, Hao and Song, Yi and Ke, Pei and Zheng, Chujie and Zhang, Zheng and Yao, Jianzhu and Zhu, Xiaoyan and Tang, Jie and Huang, Minlie},
   journal={arXiv preprint arXiv:2203.09313},
   year={2022}
 }
