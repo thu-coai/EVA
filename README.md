@@ -175,13 +175,13 @@ Sys >>> 拜～
 
 ```[]
 @article{coai2021eva,
-  title={EVA: An Open-Domain Chinese Dialogue System with Large-Scale Generative Pre-Training},
+  title={{EVA}: An Open-Domain Chinese Dialogue System with Large-Scale Generative Pre-Training},
   author={Zhou, Hao and Ke, Pei and Zhang, Zheng and Gu, Yuxian and Zheng, Yinhe and Zheng, Chujie and Wang, Yida and Wu, Chen Henry and Sun, Hao and Yang, Xiaocong and Wen, Bosi and Zhu, Xiaoyan and Huang, Minlie and Tang, Jie},
   journal={arXiv preprint arXiv:2108.01547},
   year={2021}
 }
-@article{gu2022eva2,
-  title={Eva2. 0: Investigating open-domain chinese dialogue systems with large-scale pre-training},
+@article{coai2022eva2,
+  title={{EVA2.0}: Investigating Open-Domain Chinese Dialogue Systems with Large-Scale Pre-Training},
   author={Gu, Yuxian and Wen, Jiaxin and Sun, Hao and Song, Yi and Ke, Pei and Zheng, Chujie and Zhang, Zheng and Yao, Jianzhu and Zhu, Xiaoyan and Tang, Jie and Huang, Minlie},
   journal={arXiv preprint arXiv:2203.09313},
   year={2022}
