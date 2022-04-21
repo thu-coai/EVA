@@ -68,7 +68,7 @@ class EVADataset(Dataset):
                     trunc_context = c + [self.tokenizer.sep_id] + trunc_context
                 else:
                     break
-            if len(trunc_context) > 0 and len(target) <= self.max_dec_len:
+            if len(trunc_context) > 0 and len(target) < self.max_dec_len:
                 trunc_context = trunc_context + [self.tokenizer.get_sentinel_id(0)]
                 target = [self.tokenizer.get_sentinel_id(0)] + target + [self.tokenizer.sep_id]
                 contexts.append(trunc_context)
