@@ -68,7 +68,7 @@ class BeamHypotheses(object):
 def construct_antonym_dict(args):
     if args.rule_path is None:
         return None
-    with open(os.path.join(args.rule_path, './antonym/antonym.txt'), 'r') as f:
+    with open(os.path.join(args.rule_path, './antonym/antonym.txt'), 'r', encoding="utf-8") as f:
         data = f.read().split("\n")
     data = [eval(item) for item in data if item]
     antonym_dict = defaultdict(list)
