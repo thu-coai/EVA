@@ -1,6 +1,6 @@
 #! /bin/bash
 
-WORKING_DIR=/home/coai/eva-interactive/
+WORKING_DIR=/home/coai/EVA/
 
 MP_SIZE=1 # the model parallel size
 
@@ -8,8 +8,8 @@ NUM_GPUS_PER_WORKER=4 # number of gpus used on one node
 
 DATA_PATH="${WORKING_DIR}/data/kdconv" # path of the directory of the dataset
 
-CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva1.0_model_config.json"
-CKPT_PATH="${WORKING_DIR}/checkpoints/eva1.0"
+CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
+CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
 
 LR=${2-0.0001} # learning rate
 WM=${3-0.01} # ratio of warmup steps

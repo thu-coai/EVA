@@ -4,7 +4,8 @@
 
 ## :star2:Update
 
-- March 2022: Release the EVA2.0 pre-trained model and [our paper](https://arxiv.org/abs/2203.09313) 
+- May 2022: Release the EVA2.0-base and EVA2.0-large pre-trained model.
+- March 2022: Release the EVA2.0-xLarge pre-trained model and [our paper](https://arxiv.org/abs/2203.09313) 
 - Jan 2022: Release the fine-tuning code.
 - Aug 2021: Release the EVA1.0 pre-trained model, the interacting code, and [our paper](https://arxiv.org/abs/2108.01547).
 
@@ -15,7 +16,7 @@ EVA is the largest open-source Chinese dialogue model with up to 2.8B parameters
 We provide the interactive inference, static inference, and finetuning code of EVA in this repo.
 
 ## 2 Model Download
-EVA1.0 and EVA2.0 model can be downloaded from [BAAI repository](https://wudaoai.cn/model/detail/EVA), the downloaded directory of EVA1.0 should look like this:
+EVA1.0 and EVA2.0-xLarge model can be downloaded from [BAAI repository](https://wudaoai.cn/model/detail/EVA), the downloaded directory of EVA1.0 should look like this:
 
 ```[bash]
 eva/
@@ -32,6 +33,8 @@ eva2/
 │   └── mp_rank_00_model_states.pt
 ├── latest_checkpointed_iteration.txt
 ```
+
+The EVA2.0-base and EVA2.0-large model can be downloaded from [this link](https://drive.google.com/drive/folders/1LoEl-j_BGn2gqGMwkXiWCNGjEYBWKeAP?usp=sharing).
 
 ## 3 Run the Code
 
@@ -167,8 +170,8 @@ The pre-trained models aim to facilitate the research for conversation generatio
 + ~~Open source code for finetuning~~
 + ~~EVA2.0 model download link.~~
 + ~~EVA2.0 technical report.~~
++ ~~Models with small sizes.~~
 + Provide model/codes of in hugginface style.
-+ Models with small sizes.
 + The code to process pre-training data.
 
 ## 7 Citation
@@ -181,9 +184,9 @@ The pre-trained models aim to facilitate the research for conversation generatio
   year={2021}
 }
 @article{coai2022eva2,
-  title={EVA2.0: Investigating Open-Domain Chinese Dialogue Systems with Large-Scale Pre-Training},
-  author={Yuxian Gu, Jiaxin Wen, Hao Sun, Yi Song, Pei Ke, Chujie Zheng, Zheng Zhang, Jianzhu Yao, Xiaoyan Zhu, Jie Tang, Minlie Huang},
-  journal={arXiv preprint arXiv:2108.01547},
+  title={{EVA2.0}: Investigating Open-Domain Chinese Dialogue Systems with Large-Scale Pre-Training},
+  author={Gu, Yuxian and Wen, Jiaxin and Sun, Hao and Song, Yi and Ke, Pei and Zheng, Chujie and Zhang, Zheng and Yao, Jianzhu and Zhu, Xiaoyan and Tang, Jie and Huang, Minlie},
+  journal={arXiv preprint arXiv:2203.09313},
   year={2022}
 }
 ```

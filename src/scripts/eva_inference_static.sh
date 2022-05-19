@@ -1,6 +1,6 @@
 #! /bin/bash
 
-WORKING_DIR=/home/coai/eva-interactive/
+WORKING_DIR=/home/coai/EVA/
 
 MP_SIZE=1
 
@@ -8,8 +8,8 @@ NUM_GPUS_PER_WORKER=8
 
 DATA_PATH="${WORKING_DIR}/data/kdconv"
 
-CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva1.0_model_config.json"
-CKPT_PATH="${WORKING_DIR}/checkpoints/eva1.0"
+CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
+CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
 
 SAVE_PATH="${WORKING_DIR}/results/inference_static/"
 LOG_FILE="${SAVE_PATH}/log.txt"
@@ -50,6 +50,7 @@ OPTS+=" --num-beams ${NUM_BEAMS}"
 OPTS+=" --temperature ${TEMP}"
 OPTS+=" --top_k ${TOPK}"
 OPTS+=" --top_p ${TOPP}"
+OPTS+=" --test-ratio 0.05"
 
 CMD="torchrun --master_port 1234 --nproc_per_node ${NUM_GPUS_PER_WORKER} ${WORKING_DIR}/src/eva_finetune.py ${OPTS}"
 

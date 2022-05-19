@@ -1,13 +1,13 @@
 #! /bin/bash
 
-WORKING_DIR=/home/coai/eva-interactive/
+WORKING_DIR=/home/coai/EVA/
 
 MP_SIZE=1
 
 NUM_GPUS_PER_WORKER=1
 
-CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva1.0_model_config.json"
-CKPT_PATH="${WORKING_DIR}/checkpoints/eva1.0"
+CONFIG_PATH="${WORKING_DIR}/src/configs/model/eva2.0_model_config.json"
+CKPT_PATH="${WORKING_DIR}/checkpoints/eva2.0"
 
 DS_CONFIG="${WORKING_DIR}/src/configs/deepspeed/eva_ds_config.json"
 TOKENIZER_PATH="${WORKING_DIR}/bpe_dialog_new"
