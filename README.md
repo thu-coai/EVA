@@ -35,7 +35,7 @@ eva2/
 ├── latest_checkpointed_iteration.txt
 ```
 
-EVA2.0-base 和 EVA2.0large 模型可以从[此处](https://drive.google.com/drive/folders/1LoEl-j_BGn2gqGMwkXiWCNGjEYBWKeAP?usp=sharing)下载。
+EVA2.0-base 和 EVA2.0-large 模型可以从[此处](https://drive.google.com/drive/folders/1LoEl-j_BGn2gqGMwkXiWCNGjEYBWKeAP?usp=sharing)下载。
 
 ## 3 运行
 
@@ -97,7 +97,7 @@ docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.5 /bin/bash
 
 在运行以上脚本之前，需要先将 `WORKING_DIR` 改为此 EVA 目录的路径, 将 `CKPT_PATH` 改为存储预训练 checkpoint 的路径。静态评测和微调还需要将`DATA_PATH`改为3.2中的数据目录，该目录下需要有 `train.txt`， `valid.txt` 和 `test.txt` 三个文件，训练/评测结果存储位置`SAVE_PATH`也可以按照需求修改。其它参数含义可以参考中 `eva_finetune.sh` 的注释。
 
-**注意**：EVA2.0 与 EVA1.0 在模型结构上有一些差别，在更换模型时请注意同时更换模型配置文件。项目中默认提供 EVA1.0 的模型配置文件：`eva1.0_model_config.json`，EVA2.0 的配置文件为 `eva2.0_model_config.json`。更改执行脚本中的 `CONFIG_PATH` 即可。
+**注意**：EVA2.0 与 EVA1.0 在模型结构上有一些差别，在更换模型时请注意同时更换模型配置文件。项目中默认提供 EVA2.0-xLarge 的模型配置文件：`eva2.0_model_config.json`，EVA1.0 的配置文件为 `eva1.0_model_config.json`。更改执行脚本中的 `CONFIG_PATH` 即可。
 
 上述修改修改完成后运行：
 
