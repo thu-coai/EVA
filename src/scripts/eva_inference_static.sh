@@ -50,7 +50,6 @@ OPTS+=" --num-beams ${NUM_BEAMS}"
 OPTS+=" --temperature ${TEMP}"
 OPTS+=" --top_k ${TOPK}"
 OPTS+=" --top_p ${TOPP}"
-OPTS+=" --test-ratio 0.05"
 
 CMD="torchrun --master_port 1234 --nproc_per_node ${NUM_GPUS_PER_WORKER} ${WORKING_DIR}/src/eva_finetune.py ${OPTS}"
 
