@@ -5,13 +5,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+from torch.nn import CrossEntropyLoss
 from typing import Callable, Optional
-import deepspeed
-from .utils import divide
 from transformers import PreTrainedModel
-from transformers.modeling_outputs import BaseModelOutputWithPastAndCrossAttentions,Seq2SeqLMOutput
+from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPastAndCrossAttentions, Seq2SeqLMOutput
+from transformers.utils import logging
 from .configuration_eva import EVAConfig
 from transformers.file_utils import DUMMY_INPUTS,DUMMY_MASK,is_torch_fx_proxy
+
+
+logger = logging.get_logger(__name__)
+
 
 class LayerNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
@@ -32,22 +36,8 @@ class LayerNorm(nn.Module):
             hidden_states = hidden_states.to(torch.float16)
         return self.weight * hidden_states
 
-class ParallelDenseReluDense(nn.Module):
-    def __init__(self,
-                 config: EVAConfig):
-        super(ParallelDenseReluDense, self).__init__()
-        self.wi = nn.Linear(config.d_model, config.d_ff, bias=False)
-        self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
-        self.dropout = nn.Dropout(config.dropout_rate)
 
-    def forward(self, hidden_states):
-        hidden_states = self.wi(hidden_states)
-        hidden_states = nn.functional.relu(hidden_states)
-        hidden_states = self.dropout(hidden_states)
-        hidden_states = self.wo(hidden_states)
-        return hidden_states
-
-class ParallelDenseGatedGeluDense(nn.Module):
+class DenseGatedGeluDense(nn.Module):
     def __init__(self, config: EVAConfig):
         super().__init__()
         self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
@@ -72,7 +62,7 @@ class ParallelDenseGatedGeluDense(nn.Module):
         return hidden_states
 
 
-class ParallelAttention(nn.Module):
+class Attention(nn.Module):
     def __init__(
         self,
         config: EVAConfig, 
@@ -81,7 +71,7 @@ class ParallelAttention(nn.Module):
         is_cross_attn: bool = False,
         output_layer_init_method: Optional[Callable] = None,
         has_relative_attention_bias: bool = False):
-        super(ParallelAttention, self).__init__()
+        super(Attention, self).__init__()
 
         self.is_decoder = is_decoder
         self.is_cross_attn = is_cross_attn
@@ -98,7 +88,6 @@ class ParallelAttention(nn.Module):
         self.hidden_size_per_partition = self.d_attn_out
         
         # Per attention head and per partition values.
-        # world_size = get_model_parallel_world_size() # p
         self.num_heads = config.num_heads
         self.num_attention_heads_per_partition = config.num_heads
         # self.hidden_size_per_partition = divide(self.d_attn_out, world_size) # h_p
@@ -113,7 +102,6 @@ class ParallelAttention(nn.Module):
             self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.num_heads)  
         
         # Dropout. Note that for a single iteration, this layer will generate
-        # different outputs on different number of parallel partitions but
         # on average it should not be partition dependent.
         # self.attention_dropout = nn.Dropout(config.dropout_rate)
 
@@ -201,7 +189,9 @@ class ParallelAttention(nn.Module):
         key_value_states=None,
         position_bias=None,
         query_length=None,
-        past_key_value=None,):
+        past_key_value=None,
+        use_cache=False,
+        output_attentions=False,):
 
         batch_size, seq_length = hidden_states.shape[:2]
 
@@ -246,8 +236,6 @@ class ParallelAttention(nn.Module):
             key_layer = torch.cat([past_key_layer, key_layer.to(past_key_layer.device)], dim=2)
             value_layer = torch.cat([past_value_layer, value_layer.to(past_value_layer.device)], dim=2)
             # ***_layer: [b, n_p, s_k, h_i]
-
-
 
         attention_scores = torch.matmul(query_layer.to(key_layer.device),
                                         key_layer.transpose(-1, -2))
@@ -298,15 +286,16 @@ class ParallelAttention(nn.Module):
         # attn_output: [b, s, d_model]
         attn_output = self.dropout(attn_output)
 
-        present_key_value_state = torch.stack((key_layer, value_layer), dim=0) if self.is_decoder else None
-        outputs = (attn_output,) + (present_key_value_state,) + (position_bias,) + (None,)
+        present_key_value_state = torch.stack((key_layer, value_layer), dim=0) if (self.is_decoder and use_cache) else None
+        outputs = (attn_output,) + (present_key_value_state,) + (position_bias,)
+
+        if output_attentions:
+            outputs = outputs + (attention_probs,)
 
         return outputs  # attn_output, present_key_value_state, position_bias, attention_probs
 
 
-
-
-class ParallelSelfAttention(nn.Module):
+class SelfAttention(nn.Module):
     def __init__(
         self,
         config: EVAConfig, 
@@ -315,8 +304,8 @@ class ParallelSelfAttention(nn.Module):
         output_layer_init_method: Optional[Callable] = None,
         has_relative_attention_bias: bool = False):
         
-        super(ParallelSelfAttention, self).__init__()
-        self.SelfAttention = ParallelAttention(
+        super(SelfAttention, self).__init__()
+        self.SelfAttention = Attention(
             config, 
             init_method,
             is_decoder=is_decoder,
@@ -331,7 +320,10 @@ class ParallelSelfAttention(nn.Module):
         hidden_states,
         attention_mask=None,
         position_bias=None,
-        past_key_value=None):
+        past_key_value=None,
+        use_cache=False,
+        output_attentions=False,
+    ):
 
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.SelfAttention(
@@ -339,6 +331,8 @@ class ParallelSelfAttention(nn.Module):
             attention_mask=attention_mask,
             position_bias=position_bias,
             past_key_value=past_key_value,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
         )
         hidden_states = hidden_states + self.dropout(attention_output[0])
         # add attentions if we output them
@@ -346,7 +340,7 @@ class ParallelSelfAttention(nn.Module):
         return outputs # hidden_states, present_key_value_state, position_bias, (attention_probs)
 
 
-class ParallelCrossAttention(nn.Module):
+class CrossAttention(nn.Module):
     def __init__(
         self,
         config: EVAConfig,
@@ -354,9 +348,9 @@ class ParallelCrossAttention(nn.Module):
         is_decoder: bool = True,
         output_layer_init_method: Optional[Callable] = None):
         
-        super(ParallelCrossAttention, self).__init__()
+        super(CrossAttention, self).__init__()
 
-        self.EncDecAttention = ParallelAttention(
+        self.EncDecAttention = Attention(
             config,
             init_method,
             is_decoder=is_decoder,
@@ -373,7 +367,10 @@ class ParallelCrossAttention(nn.Module):
         attention_mask=None,
         position_bias=None,
         query_length=None,
-        past_key_value=None):
+        past_key_value=None,
+        use_cache=False,
+        output_attentions=False,
+    ):
 
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.EncDecAttention(
@@ -382,7 +379,9 @@ class ParallelCrossAttention(nn.Module):
             attention_mask=attention_mask,
             position_bias=position_bias,
             query_length=query_length,
-            past_key_value=past_key_value
+            past_key_value=past_key_value,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
         )
         hidden_states = hidden_states + self.dropout(attention_output[0])
         # add attentions if we output them
@@ -390,19 +389,12 @@ class ParallelCrossAttention(nn.Module):
         return outputs # hidden_states, present_key_value_state, position_bias, (attention_probs)
 
 
-class ParallelFF(nn.Module):
+class FF(nn.Module):
     def __init__(
         self,
         config: EVAConfig):
-        super(ParallelFF, self).__init__()
-        if config.feed_forward_proj == "relu":
-            self.DenseReluDense = ParallelDenseReluDense(config)
-        elif config.feed_forward_proj == "gated-gelu":
-            self.DenseReluDense = ParallelDenseGatedGeluDense(config)
-        else:
-            raise ValueError(
-                f"{config.feed_forward_proj} is not supported. Choose between `relu` and `gated-gelu`"
-            )
+        super(FF, self).__init__()
+        self.DenseReluDense = DenseGatedGeluDense(config)
         self.layer_norm = LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
 
@@ -414,7 +406,7 @@ class ParallelFF(nn.Module):
         return hidden_states
 
 
-class ParallelBlock(nn.Module):
+class Block(nn.Module):
     def __init__(
         self, 
         config: EVAConfig,
@@ -422,14 +414,14 @@ class ParallelBlock(nn.Module):
         output_layer_init_method: Optional[Callable] = None,
         has_relative_attention_bias: bool = False, 
         is_decoder: bool = False):
-        super(ParallelBlock, self).__init__()
+        super(Block, self).__init__()
 
         if output_layer_init_method is None:
             output_layer_init_method = init_method
 
         self.is_decoder = is_decoder
         self.layer = nn.ModuleList()
-        self.layer.append(ParallelSelfAttention(
+        self.layer.append(SelfAttention(
             config,
             init_method,
             is_decoder=is_decoder,
@@ -437,15 +429,13 @@ class ParallelBlock(nn.Module):
             has_relative_attention_bias=has_relative_attention_bias))
 
         if self.is_decoder:
-            self.layer.append(ParallelCrossAttention(
+            self.layer.append(CrossAttention(
                 config,
                 init_method,
                 is_decoder=is_decoder,
                 output_layer_init_method=output_layer_init_method))
 
-        self.layer.append(ParallelFF(
-            config))
-
+        self.layer.append(FF(config))
 
     def forward(
         self,
@@ -455,7 +445,10 @@ class ParallelBlock(nn.Module):
         enc_hidden_states=None,
         cross_attention_mask=None,
         enc_dec_position_bias=None,
-        past_key_value=None,):
+        past_key_value=None,
+        use_cache=False,
+        output_attentions=False,
+    ):
 
         if past_key_value is not None:
             self_attn_past_key_value = past_key_value[0]
@@ -468,12 +461,15 @@ class ParallelBlock(nn.Module):
             attention_mask=attention_mask,
             position_bias=position_bias,
             past_key_value=self_attn_past_key_value,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
         )
         hidden_states, self_attn_present_key_value = self_attn_outputs[:2]
-        position_bias = (self_attn_outputs[2],)
-        attention_probs = (self_attn_outputs[3],)
-        present_key_value = (self_attn_present_key_value,)
-
+        attn_outputs = self_attn_outputs[2:]
+        if self_attn_present_key_value is not None:
+            present_key_value = (self_attn_present_key_value,)
+        else:
+            present_key_value = None
 
         if self.is_decoder:
             if self_attn_present_key_value is not None:
@@ -488,18 +484,22 @@ class ParallelBlock(nn.Module):
                 position_bias=enc_dec_position_bias,
                 past_key_value=cross_attn_past_key_value,
                 query_length=query_length,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
             )
 
             hidden_states, cross_attn_present_key_value = cross_attn_outputs[:2]
-            present_key_value += (cross_attn_present_key_value,)
-            # Keep cross-attention outputs and relative position weights
-            position_bias = position_bias + (cross_attn_outputs[2],)
-            attention_probs = attention_probs + (cross_attn_outputs[3],)
+            if present_key_value is not None:
+                present_key_value += (cross_attn_present_key_value,)
+            attn_outputs = attn_outputs + cross_attn_outputs[2:]
 
         hidden_states = self.layer[-1](hidden_states)
         outputs = (hidden_states,)
 
-        outputs = outputs + (present_key_value,) + position_bias + attention_probs
+        if use_cache:
+            outputs = outputs + (present_key_value,) + attn_outputs # hidden_states, present_key_value, self_attn_position_bias, self_attn_probs, cross_attn_position_bias, cross_attn_probs
+        else:
+            outputs = outputs + attn_outputs
 
         return outputs
 
@@ -535,17 +535,7 @@ class EVAPreTrainedModel(PreTrainedModel):
             # Mesh TensorFlow embeddings initialization
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L1624
             module.shared.weight.data.normal_(mean=0.0, std=factor * 1.0)
-        elif isinstance(module, ParallelDenseReluDense):
-            # Mesh TensorFlow FF initialization
-            # See https://github.com/tensorflow/mesh/blob/master/mesh_tensorflow/transformer/transformer_layers.py#L56
-            # and https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L89
-            module.wi.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
-            if hasattr(module.wi, "bias") and module.wi.bias is not None:
-                module.wi.bias.data.zero_()
-            module.wo.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
-            if hasattr(module.wo, "bias") and module.wo.bias is not None:
-                module.wo.bias.data.zero_()
-        elif isinstance(module, ParallelDenseGatedGeluDense):
+        elif isinstance(module, DenseGatedGeluDense):
             module.wi_0.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
             if hasattr(module.wi_0, "bias") and module.wi_0.bias is not None:
                 module.wi_0.bias.data.zero_()
@@ -555,7 +545,7 @@ class EVAPreTrainedModel(PreTrainedModel):
             module.wo.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
             if hasattr(module.wo, "bias") and module.wo.bias is not None:
                 module.wo.bias.data.zero_()
-        elif isinstance(module, ParallelAttention):
+        elif isinstance(module, Attention):
             # Mesh TensorFlow attention initialization to avoid scaling before softmax
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/attention.py#L136
             d_model = self.config.d_model
@@ -569,7 +559,7 @@ class EVAPreTrainedModel(PreTrainedModel):
                 module.relative_attention_bias.weight.data.normal_(mean=0.0, std=factor * ((d_model) ** -0.5))
 
     def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, (ParallelAttention, ParallelTransformer)):
+        if isinstance(module, (Attention, Transformer)):
             module.gradient_checkpointing = value
 
     def _shift_right(self, input_ids):
@@ -599,10 +589,11 @@ class EVAPreTrainedModel(PreTrainedModel):
         return shifted_input_ids
 
 
-class ParallelTransformer(EVAPreTrainedModel):
+class Transformer(EVAPreTrainedModel):
     def __init__(self, config: EVAConfig, word_embeds: nn.Embedding, role_embeds: nn.Embedding, is_decoder=False, checkpoint_activations=False, checkpoint_num_layers=1):
-        super(ParallelTransformer, self).__init__(config)
+        super(Transformer, self).__init__(config)
         
+        self.config = config
         self.embed_tokens = word_embeds
         self.role_embeds = role_embeds
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -612,14 +603,19 @@ class ParallelTransformer(EVAPreTrainedModel):
         self.is_decoder = is_decoder
 
         self.block = nn.ModuleList(
-            [ParallelBlock(
+            [Block(
                 config,
                 init_method=None,
                 has_relative_attention_bias=bool(i == 0),
                 is_decoder=is_decoder) for i in range(config.num_layers)]
         )
         self.post_init()
-    
+        
+    def get_input_embeddings(self):
+        return self.embed_tokens
+
+    def set_input_embeddings(self, new_embeddings):
+        self.embed_tokens = new_embeddings
     
     def forward(
         self,
@@ -628,266 +624,281 @@ class ParallelTransformer(EVAPreTrainedModel):
         attention_mask=None,
         cross_attention_mask=None,
         enc_hidden_states=None,
-        past_key_values=None,):
-        # print(input_ids.is_cuda)
-        # print(self.embed_tokens.weight.is_cuda)
+        past_key_values=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        ):
+        use_cache = use_cache if use_cache is not None else self.config.use_cache
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
         inputs_embeds = self.embed_tokens(input_ids.to(self.embed_tokens.weight.device))
         if role_ids is not None:
             role_embeds = self.role_embeds(role_ids)
             # add role embeddings
             inputs_embeds = inputs_embeds + role_embeds
         
-        # remove abstract position ids
-        # pos_embeds = self.position_embeds(position_ids)
-        # inputs_embeds = inputs_embeds + pos_embeds
+        input_shape = input_ids.size()
+        batch_size, seq_length = input_shape
+        mask_seq_length = past_key_values[0][0].shape[3] + seq_length if past_key_values is not None else seq_length
+        
+        if use_cache:
+            assert self.is_decoder, f"`use_cache` can only be set to `True` if {self} is used as a decoder"
 
+        if attention_mask is None:
+            attention_mask = torch.ones(batch_size, mask_seq_length).to(inputs_embeds.device)
+        if self.is_decoder and cross_attention_mask is None and enc_hidden_states is not None:
+            encoder_seq_length = enc_hidden_states.shape[1]
+            cross_attention_mask = torch.ones(
+                batch_size, encoder_seq_length, device=inputs_embeds.device, dtype=torch.long
+            )
+        
+        attention_mask = self.get_extended_attention_mask(attention_mask, input_shape)
+
+        if self.is_decoder and enc_hidden_states is not None:
+            encoder_batch_size, encoder_sequence_length, _ = enc_hidden_states.size()
+            encoder_hidden_shape = (encoder_batch_size, encoder_sequence_length)
+            if cross_attention_mask is None:
+                cross_attention_mask = torch.ones(encoder_hidden_shape, device=inputs_embeds.device)
+            cross_attention_mask = self.invert_attention_mask(cross_attention_mask)
+        else:
+            cross_attention_mask = None
 
         hidden_states = self.dropout(inputs_embeds)
         position_bias = None
         enc_dec_position_bias = None
-        present_key_value_states = []
+        present_key_value_states = [] if use_cache else None
 
         # initialize past_key_values with `None` if past does not exist
         if past_key_values is None:
             past_key_values = [None] * len(self.block)
 
-        all_self_attention_probs = []
-        all_cross_attention_probs = []
+        all_hidden_states = [] if output_hidden_states else None
+        all_self_attention_probs = [] if output_attentions else None
+        all_cross_attention_probs = [] if (output_attentions and self.is_decoder) else None
 
-        def custom(start, end):
-            def custom_forward(*inputs):
-                layer_modules_ = self.block[start:end]
-                past_key_values_ = past_key_values[start:end]
-                self_attn_present_key_values_ = []
-                cross_attn_present_key_values_ = []
-                position_bias_, enc_dec_position_bias_ = None, None
+        for i, (layer_module, past_key_value) in enumerate(zip(self.block, past_key_values)):
 
-                hidden_states_ = inputs[0]
-                if len(inputs) > 2:
-                    position_bias_ = inputs[1]
-                if len(inputs) > 3:
-                    enc_dec_position_bias_ = inputs[2]
-                
-                if enc_hidden_states is not None:
-                    enc_hidden_states_ = inputs[-1]
-                else:
-                    enc_hidden_states_ = None
+            if output_hidden_states:
+                all_hidden_states.append(hidden_states)
 
-                _l = start
-                for layer_, past_key_value_ in zip(layer_modules_, past_key_values_):
-                    layer_outputs_ = layer_(hidden_states_,
-                                            attention_mask,
-                                            position_bias_,
-                                            enc_hidden_states_,
-                                            cross_attention_mask,
-                                            enc_dec_position_bias_,
-                                            past_key_value=past_key_value_)
-                    
-                    hidden_states_, present_key_value_ = layer_outputs_[:2]
-                    if self.is_decoder:
-                        self_attn_present_key_values_.append(present_key_value_[0])
-                        cross_attn_present_key_values_.append(present_key_value_[1])
-                        all_self_attention_probs.append(layer_outputs_[-2])
-                        all_cross_attention_probs.append(layer_outputs_[-1])
-                    else:
-                        self_attn_present_key_values_.append(present_key_value_[0])
-                        all_self_attention_probs.append(layer_outputs_[-1])
-
-                    position_bias_ = layer_outputs_[2]
-                    if self.is_decoder and enc_hidden_states is not None:
-                        enc_dec_position_bias_ = layer_outputs_[3]
-                    
-                    _l += 1
-                
-                outputs_ = (hidden_states_,)
-                if position_bias_ is not None:
-                    outputs_ += (position_bias_,)
-                if enc_dec_position_bias_ is not None:
-                    outputs_ += (enc_dec_position_bias_,)
-                if self.is_decoder:
-                    self_attn_present_key_values_ = torch.stack(self_attn_present_key_values_, dim=0)
-                    cross_attn_present_key_values_ = torch.stack(cross_attn_present_key_values_, dim=0)
-                    outputs_ += (self_attn_present_key_values_, cross_attn_present_key_values_,)
-                return outputs_
+            layer_outputs = layer_module(
+                hidden_states,
+                attention_mask=attention_mask,
+                position_bias=position_bias,
+                enc_hidden_states=enc_hidden_states,
+                cross_attention_mask=cross_attention_mask,
+                enc_dec_position_bias=enc_dec_position_bias,
+                past_key_value=past_key_value,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
+            )
+            # layer_outputs is a tuple with:
+            # hidden-states, key-value-states, self-attention position bias, self_attn_probs, cross-attention position bias, cross_attn_probs
             
-            return custom_forward
+            if not use_cache:
+                layer_outputs = layer_outputs[:1] + (None,) + layer_outputs[1:]
+            
+            hidden_states, present_key_value_state = layer_outputs[:2]
 
-        if self.checkpoint_activations:
-            l = 0
-            num_layers = len(self.block)
-            chunk_length = self.checkpoint_num_layers
-            while l < num_layers:
-                arg_list = (hidden_states,)
-                if position_bias is not None:
-                    arg_list += (position_bias,)
-                if enc_dec_position_bias is not None:
-                    arg_list += (enc_dec_position_bias,)
-                
-                if enc_hidden_states is not None:
-                    arg_list += (enc_hidden_states,)
-                    tmp_outputs = custom(l, l+chunk_length)(*arg_list)
-                else:
-                    arg_list += (attention_mask,)
-                    tmp_outputs = custom(l, l+chunk_length)(*arg_list)
-                
-                hidden_states = tmp_outputs[0]
-                if self.is_decoder:
-                    if len(tmp_outputs) > 3:
-                        position_bias = tmp_outputs[1]
-                    if len(tmp_outputs) > 4:
-                        enc_dec_position_bias = tmp_outputs[2]
-                    present_key_value_states.extend([(s, c) for s, c in zip(tmp_outputs[-2], tmp_outputs[-1])])
-                else:
-                    if len(tmp_outputs) > 1:
-                        position_bias = tmp_outputs[1]
-                    if len(tmp_outputs) > 2:
-                        enc_dec_position_bias = tmp_outputs[2]
-                    present_key_value_states.extend([None] * chunk_length)            
-                
-                l += chunk_length
-        else:
-            for i, (layer_module, past_key_value) in enumerate(zip(self.block, past_key_values)):
-
-                layer_outputs = layer_module(
-                    hidden_states,
-                    attention_mask=attention_mask,
-                    position_bias=position_bias,
-                    enc_hidden_states=enc_hidden_states,
-                    cross_attention_mask=cross_attention_mask,
-                    enc_dec_position_bias=enc_dec_position_bias,
-                    past_key_value=past_key_value
-                )
-                # layer_outputs is a tuple with:
-                # hidden-states, key-value-states, self-attention position bias, cross-attention position bias, attention_probs
-                hidden_states, present_key_value_state = layer_outputs[:2]
-                if self.is_decoder:
-                    all_self_attention_probs.append(layer_outputs[-2])
-                    all_cross_attention_probs.append(layer_outputs[-1])
-                else:
-                    all_self_attention_probs.append(layer_outputs[-1])
-
-                position_bias = layer_outputs[2]
-                if self.is_decoder and enc_hidden_states is not None:
-                    enc_dec_position_bias = layer_outputs[3]
-                
+            # We share the position biases between the layers - the first layer store them
+            # layer_outputs = hidden-states, key-value-states (self-attention weights),
+            # (self-attention position bias), (cross-attention weights), (cross-attention position bias)
+            position_bias = layer_outputs[2]
+            if self.is_decoder and enc_hidden_states is not None:
+                enc_dec_position_bias = layer_outputs[4 if output_attentions else 3]
+            
+            if use_cache:
                 present_key_value_states.append(present_key_value_state)
-                # We share the position biases between the layers - the first layer store them
-                # layer_outputs = hidden-states, key-value-states (self-attention weights),
-                # (self-attention position bias), (cross-attention weights), (cross-attention position bias)
-                # position_bias = layer_outputs[2]
+                
+            if output_attentions:
+                all_self_attention_probs.append(layer_outputs[3])
+                if self.is_decoder:
+                    all_cross_attention_probs.append(layer_outputs[5])
 
         hidden_states = self.final_layer_norm(hidden_states)
         hidden_states = self.dropout(hidden_states)
 
+        if output_hidden_states:
+            all_hidden_states.append(hidden_states)
+
+        if not return_dict:
+            return tuple(
+                v
+                for v in [
+                    hidden_states,
+                    present_key_value_states,
+                    all_hidden_states,
+                    all_self_attention_probs,
+                    all_cross_attention_probs,
+                ]
+                if v is not None
+            )
         return BaseModelOutputWithPastAndCrossAttentions(
             last_hidden_state=hidden_states,
             past_key_values=present_key_value_states,
-            hidden_states=None,
+            hidden_states=all_hidden_states,
             attentions=all_self_attention_probs,
             cross_attentions=all_cross_attention_probs,
         )
 
 
 class EVAModel(EVAPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [
-        r"encoder\.embed_tokens\.weight",
-        r"decoder\.embed_tokens\.weight",
-    ]
-    _keys_to_ignore_on_load_unexpected = [
-        r"decoder\.block\.0\.layer\.1\.EncDecAttention\.relative_attention_bias\.weight",
-        r"cache_dir",
-        r"shared.weight"
-    ]
     def __init__(
         self,
         config: EVAConfig,
-        parallel_output=True,
         checkpoint_activations=False,
         checkpoint_num_layers=1):
         
         super(EVAModel, self).__init__(config)
         if config.vocab_size is None:
             raise RuntimeError("Should set vocab size")
-        self.enc_config = copy.deepcopy(config)
-        self.dec_config = copy.deepcopy(config)
 
-        self.parallel_output = parallel_output
-
+        self.config = config
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
-
         self.role_embeds = nn.Embedding(2, config.d_model)
-
         self.lm_head = nn.Embedding(config.vocab_size, config.d_model)
-        
-        self.encoder = ParallelTransformer(self.enc_config, word_embeds=self.shared, role_embeds=self.role_embeds, is_decoder=False,
+        self.encoder = Transformer(self.config, word_embeds=self.shared, role_embeds=self.role_embeds, is_decoder=False,
                                                checkpoint_activations=checkpoint_activations, checkpoint_num_layers=checkpoint_num_layers)
-        self.decoder = ParallelTransformer(self.dec_config, word_embeds=self.shared, role_embeds=self.role_embeds, is_decoder=True,
+        self.decoder = Transformer(self.config, word_embeds=self.shared, role_embeds=self.role_embeds, is_decoder=True,
                                                checkpoint_activations=checkpoint_activations, checkpoint_num_layers=checkpoint_num_layers)
+        self.post_init()
+
+
+    def get_input_embeddings(self):
+        return self.shared
+
+    def set_input_embeddings(self, new_embeddings):
+        self.shared = new_embeddings
+        self.encoder.set_input_embeddings(new_embeddings)
+        self.decoder.set_input_embeddings(new_embeddings)
+
+    def set_output_embeddings(self, new_embeddings):
+        self.lm_head = new_embeddings
+
+    def get_output_embeddings(self):
+        return self.lm_head
+
+    def get_encoder(self):
+        return self.encoder
+
+    def get_decoder(self):
+        return self.decoder
 
     def forward(
         self, 
-        enc_input_ids=None,
-        enc_role_ids=None,
-        enc_attention_mask=None,
-        dec_input_ids=None,
-        dec_role_ids=None,
-        dec_attention_mask=None,
-        cross_attention_mask=None,
-        enc_hidden_states=None,
+        input_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        encoder_attention_mask=None,
+        encoder_outputs=None,
         past_key_values=None,
-        only_encoder=False):
+        only_encoder=False,
+        labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None):
+        
+        use_cache = use_cache if use_cache is not None else self.config.use_cache
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        if enc_hidden_states is None:
-            enc_outputs = self.encoder(
-                input_ids=enc_input_ids,
-                attention_mask=enc_attention_mask,
-                role_ids=enc_role_ids,
+        if encoder_outputs is None:
+            encoder_outputs = self.encoder(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+        elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
+            encoder_outputs = BaseModelOutput(
+                last_hidden_state=encoder_outputs[0],
+                hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,
+                attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
             )
 
-            enc_hidden_states = enc_outputs["last_hidden_state"]
-        else:
-            enc_outputs = None
+        encoder_hidden_states = encoder_outputs[0]
 
         if only_encoder:
-            return Seq2SeqLMOutput(
-            encoder_last_hidden_state=enc_outputs.last_hidden_state,
-        )
+            return encoder_outputs
 
+        if labels is not None and decoder_input_ids is None:
+            # get decoder inputs from shifting lm labels to the right
+            decoder_input_ids = self._shift_right(labels)
 
-        dec_outputs = self.decoder(
-            input_ids=dec_input_ids,
-            role_ids=dec_role_ids,
-            attention_mask=dec_attention_mask,
-            cross_attention_mask=cross_attention_mask,
-            enc_hidden_states=enc_hidden_states,
+        decoder_outputs = self.decoder(
+            input_ids=decoder_input_ids,
+            attention_mask=decoder_attention_mask,
+            cross_attention_mask=encoder_attention_mask,
+            enc_hidden_states=encoder_hidden_states,
             past_key_values=past_key_values,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
         )
 
-        # last_hidden_state_parallel = copy_to_model_parallel_region(dec_outputs.last_hidden_state)
-        logits_parallel = F.linear(dec_outputs.last_hidden_state, self.lm_head.weight)
+        lm_logits = F.linear(decoder_outputs.last_hidden_state, self.lm_head.weight)
 
-        lm_logits = logits_parallel
-        
-        if enc_outputs is None:
-            return Seq2SeqLMOutput(
-            logits=lm_logits,
-            past_key_values=dec_outputs.past_key_values,
-            decoder_hidden_states=dec_outputs.hidden_states,
-            decoder_attentions=dec_outputs.attentions,
-            cross_attentions=dec_outputs.cross_attentions,
-        )
+        loss = None
+        if labels is not None:
+            loss_fct = CrossEntropyLoss(ignore_index=-100)
+            loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
+
+        if not return_dict:
+            output = (lm_logits,) + decoder_outputs[1:] + encoder_outputs
+            return ((loss,) + output) if loss is not None else output
         
         return Seq2SeqLMOutput(
+            loss=loss,
             logits=lm_logits,
-            past_key_values=dec_outputs.past_key_values,
-            decoder_hidden_states=dec_outputs.hidden_states,
-            decoder_attentions=dec_outputs.attentions,
-            cross_attentions=dec_outputs.cross_attentions,
-            encoder_last_hidden_state=enc_outputs.last_hidden_state,
-            encoder_hidden_states=enc_outputs.hidden_states,
-            encoder_attentions=enc_outputs.attentions,
+            past_key_values=decoder_outputs.past_key_values,
+            decoder_hidden_states=decoder_outputs.hidden_states,
+            decoder_attentions=decoder_outputs.attentions,
+            cross_attentions=decoder_outputs.cross_attentions,
+            encoder_last_hidden_state=encoder_outputs.last_hidden_state,
+            encoder_hidden_states=encoder_outputs.hidden_states,
+            encoder_attentions=encoder_outputs.attentions,
         )
+        
+    def prepare_inputs_for_generation(
+        self,
+        input_ids,
+        past=None,
+        attention_mask=None,
+        encoder_outputs=None,
+        use_cache=None,
+        **kwargs
+    ):
 
+        # cut decoder_input_ids if past is used
+        if past is not None:
+            input_ids = input_ids[:, -1:]
+
+        return {
+            "decoder_input_ids": input_ids,
+            "past_key_values": past,
+            "encoder_outputs": encoder_outputs,
+            "attention_mask": attention_mask,
+            "use_cache": use_cache,
+        }
+        
+    def _reorder_cache(self, past, beam_idx):
+        # if decoder past is not included in output
+        # speedy decoding is disabled and no need to reorder
+        if past is None:
+            logger.warning("You might want to consider setting `use_cache=True` to speed up decoding")
+            return past
+
+        # past_ = num_layer * 2 * (2, beam_size, 32, prefix_len, 64) first 2: self/cross attention, second 2: key/value
+        reordered_decoder_past = [[torch.index_select(layer_past_type, 1, beam_idx) for layer_past_type in layer_past] for layer_past in past]
+        
+        return reordered_decoder_past
 
 
 def enc_dec_get_params_for_weight_decay_optimization(module):

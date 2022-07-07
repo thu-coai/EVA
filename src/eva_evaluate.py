@@ -13,11 +13,9 @@ from cross_entropy import vocab_parallel_cross_entropy
 
 from utils import print_args, save_rank_0
 from utils import set_random_seed
-from model import EVAModel, enc_dec_get_params_for_weight_decay_optimization
+from model import EVAModel
 from model import EVAConfig
 from samplers import DistributedBatchSampler, RandomSampler
-
-from learning_rates import AnnealingLR
 
 from generation_metrics import Metric
 from generation_utils import generate_beam, generate_no_beam
@@ -230,11 +228,7 @@ def main():
     config = EVAConfig.from_json_file(args.model_config)
     config.feed_forward_proj = 'gated-gelu'
 
-    # Pytorch distributed.
-    # initialize_distributed(args)
-
     # Optional DeepSpeed Activation Checkpointing Features
-    num_checkpoints = config.num_layers // args.checkpoint_num_layers
     print('Pretrain Enc-Dec model')
     print_args(args)
     with open(os.path.join(args.save, "args.json"), "w") as f:
@@ -262,7 +256,7 @@ def main():
         log_string = "Eval result: "
         for key, value in metrics.items():
             log_string += " {}: {:.5} | ".format(key, value)
-        # if dist.get_rank() == 0:
+
         with open(os.path.join(args.save, "metrics.json"), "w") as f:
             json.dump(metrics, f, ensure_ascii=False, indent=2)
         with open(os.path.join(args.save, "generation.json"), "w") as f:

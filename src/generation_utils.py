@@ -269,7 +269,7 @@ def postprocess_next_token_scores(
 
 
 def generate_no_beam(model_batch, full_context, model, tokenizer: EVATokenizer, args, device):
-    batch_size = args.batch_size
+    batch_size = len(model_batch["enc_input_ids"])
     target_length = args.max_generation_length
     
     dec_init_length = 1 # +1 for s_0
@@ -363,7 +363,7 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
     '''
         Since the context in model batch is truncated, we need full_context to store the tokens in the entire context.
     '''
-    batch_size = args.batch_size
+    batch_size = len(model_batch["enc_input_ids"])
     num_beams = args.num_beams
     target_length = args.max_generation_length
     
@@ -549,7 +549,7 @@ def generate_beam(model_batch, full_context, model, tokenizer: EVATokenizer, arg
         dec_attention_mask = torch.cat([dec_attention_mask[:, :, -1:, :], dec_attention_mask[:, :, -1:, -1:]], dim=-1)
         cross_attention_mask = cross_attention_mask[:, :, -1:, :]
         # past_key_values = num_layer * 2 * (2, beam_size, 32, prefix_len, 64) first 2: self/cross attention, second 2: key/value
-        past_key_values = [[torch.index_select(layer_past_type.to("cuda:0"), 1, beam_idx) for layer_past_type in layer_past] for layer_past in past_key_values]
+        past_key_values = [[torch.index_select(layer_past_type, 1, beam_idx) for layer_past_type in layer_past] for layer_past in past_key_values]
         
         gen_len += 1
 

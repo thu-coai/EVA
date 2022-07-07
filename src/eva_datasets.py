@@ -23,7 +23,7 @@ class EVADataset(Dataset):
         self.tokenizer = tokenizer
         self.max_enc_len = args.enc_seq_length
         self.max_dec_len = args.dec_seq_length
-        self.pad_id = tokenizer.pad_id
+        self.pad_id = tokenizer.pad_token_id
         self.ratio = ratio
 
         if cache_path is None or not os.path.exists(os.path.join(cache_path, split + ".pkl")):
