@@ -11,6 +11,7 @@ set_random_seed(args.seed)
 tokenizer = EVATokenizer.from_pretrained("/home/guyuxian/EVA/checkpoints/eva2.0-hf")
 model = EVAModel.from_pretrained("/home/guyuxian/EVA/checkpoints/eva2.0-hf")
 model = model.to(device)
+model = model.half()
 
 input_str = "今天天气怎么样？"
 

@@ -14,5 +14,6 @@
   "use_cache": false,
   "use_scaled_init_for_output_weights": true,
   "do_dim_trick": false,
-  "attn_scale": true
+  "attn_scale": true,
+  "tie_word_embeddings": false
 }

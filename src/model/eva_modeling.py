@@ -44,14 +44,7 @@ class DenseGatedGeluDense(nn.Module):
         self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=False)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
         self.dropout = nn.Dropout(config.dropout_rate)
-        def gelu_new(x):
-            """
-            Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT). Also see
-            the Gaussian Error Linear Units paper: https://arxiv.org/abs/1606.08415
-            """
-            return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x *
-                                       (1.0 + 0.044715 * x * x)))
-        self.gelu_act = gelu_new
+        self.gelu_act = F.gelu
 
     def forward(self, hidden_states):
         hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
@@ -259,9 +252,7 @@ class Attention(nn.Module):
                 position_bias = position_bias[:, :, -seq_length:, :]
 
         # Apply the attention mask [b, 1, s_q, s_k] and relative position_bias
-        # NOTE: 10000 can't be larger otherwise may cause fp16 overflow (max in fp16 = 65504)
-        attention_scores = torch.mul(attention_scores.to(attention_mask.device), attention_mask) + (-10000.0 * (1.0 - attention_mask) + position_bias.to(attention_mask.device))
-        # attention_scores = torch.mul(attention_scores, attention_mask) - 10000.0 * (1.0 - attention_mask)
+        attention_scores = attention_scores + attention_mask + position_bias
         
         # Attention probabilities. [b, n_p, s_q, s_k]
         attention_probs = nn.Softmax(dim=-1)(attention_scores)
@@ -760,7 +751,7 @@ class EVAModel(EVAPreTrainedModel):
         self.config = config
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
         self.role_embeds = nn.Embedding(2, config.d_model)
-        self.lm_head = nn.Embedding(config.vocab_size, config.d_model)
+        self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.encoder = Transformer(self.config, word_embeds=self.shared, role_embeds=self.role_embeds, is_decoder=False,
                                                checkpoint_activations=checkpoint_activations, checkpoint_num_layers=checkpoint_num_layers)
         self.decoder = Transformer(self.config, word_embeds=self.shared, role_embeds=self.role_embeds, is_decoder=True,
@@ -843,7 +834,7 @@ class EVAModel(EVAPreTrainedModel):
             return_dict=return_dict,
         )
 
-        lm_logits = F.linear(decoder_outputs.last_hidden_state, self.lm_head.weight)
+        lm_logits = self.lm_head(decoder_outputs.last_hidden_state)
 
         loss = None
         if labels is not None:
