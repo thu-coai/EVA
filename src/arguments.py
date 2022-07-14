@@ -5,7 +5,6 @@
 import argparse
 import os
 import torch
-import deepspeed
 
 
 def add_model_config_args(parser: argparse.ArgumentParser):
@@ -13,7 +12,7 @@ def add_model_config_args(parser: argparse.ArgumentParser):
 
     group = parser.add_argument_group("model", "model configuration")
 
-    group.add_argument("--model-config", type=str, 
+    group.add_argument("--model-config", type=str, default=None,
                         help="The path to the model configuration file.")
     group.add_argument("--model-parallel-size", type=int, default=1, 
                         help="The segment number of model parallism.")
@@ -65,8 +64,6 @@ def add_training_args(parser: argparse.ArgumentParser):
                         help="Checkpoint activation to allow for training with larger models and sequences.")
     group.add_argument("--checkpoint-num-layers", type=int, default=1,
                         help="Chunk size (number of layers) for checkpointing.")
-    group.add_argument("--deepspeed-activation-checkpointing", action="store_true",
-                        help="Use activation checkpointing from deepspeed.")
     group.add_argument("--clip-grad", type=float, default=1.0,
                         help="Do gradient clipping.")
 
@@ -132,6 +129,7 @@ def add_text_generate_args(parser: argparse.ArgumentParser):
     """Text generate arguments."""
 
     group = parser.add_argument_group("Text generation", "configurations")
+    group.add_argument("--do-sample", action="store_true")
     group.add_argument("--temperature", type=float, default=0.9,
                         help="The temperature of sampling.")
     group.add_argument("--top_p", type=float, default=0.9,
@@ -189,9 +187,6 @@ def get_args():
     parser = add_text_generate_args(parser)
     parser = add_data_args(parser)
 
-    # Include DeepSpeed configuration arguments
-    parser = deepspeed.add_config_arguments(parser)
-
     args = parser.parse_args()
 
     args.cuda = torch.cuda.is_available()
@@ -204,9 +199,5 @@ def get_args():
     if args.rank == 0:
         print("using world size: {} and model-parallel size: {} ".format(
             args.world_size, args.model_parallel_size))
-
-    args.dynamic_loss_scale = True
-    if args.rank == 0:
-        print(" > using dynamic loss scaling")
 
     return args

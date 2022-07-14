@@ -65,22 +65,21 @@ class EVADataset(Dataset):
             trunc_context = []
             for c in context[::-1]:
                 if len(c) + len(trunc_context) + 1 + 1 <= self.max_enc_len: # first 1 for <sep>, second 1 for <s_0>
-                    trunc_context = c + [self.tokenizer.sep_id] + trunc_context
+                    trunc_context = c + [self.tokenizer.eos_token_id] + trunc_context
                 else:
                     break
             if len(trunc_context) > 0 and len(target) <= self.max_dec_len:
-                trunc_context = trunc_context + [self.tokenizer.get_sentinel_id(0)]
-                target = [self.tokenizer.get_sentinel_id(0)] + target + [self.tokenizer.sep_id]
+                trunc_context = trunc_context + [self.tokenizer.bos_token_id]
+                label = [self.tokenizer.bos_token_id] + target + [self.tokenizer.eos_token_id]
                 contexts.append(trunc_context)
-                targets.append(target[:-1])
-                labels.append(target[1:])
+                labels.append(label)
             else:
                 continue
 
         return contexts, targets, labels
 
     def __getitem__(self, index):
-        return (self.contexts[index], self.targets[index], self.labels[index])
+        return (self.contexts[index], self.labels[index])
 
     def __len__(self):
         return len(self.contexts)
@@ -88,36 +87,29 @@ class EVADataset(Dataset):
     def collate(self, samples):
         bs = len(samples)
         contexts = [s[0] for s in samples]
-        targets = [s[1] for s in samples]
-        labels = [s[2] for s in samples]
+        labels = [s[1] for s in samples]
 
         batch = {
-            "enc_input_ids": torch.ones(bs, self.max_enc_len, dtype=torch.long) * self.pad_id,
-            "dec_input_ids": torch.ones(bs, self.max_dec_len, dtype=torch.long) * self.pad_id,
-            "enc_attention_mask": torch.zeros(bs, 1, self.max_enc_len, self.max_enc_len),
-            "dec_attention_mask": torch.zeros(bs, 1, self.max_dec_len, self.max_dec_len),
-            "cross_attention_mask": torch.zeros(bs, 1, self.max_dec_len, self.max_enc_len)
-        }
-
-        no_model_batch = {
-            "labels": torch.ones(bs, self.max_dec_len, dtype=torch.long) * self.pad_id,
-            "loss_mask": torch.zeros(bs, self.max_dec_len)
+            "input_ids": torch.ones(bs, self.max_enc_len, dtype=torch.long) * self.pad_id,
+            "attention_mask": torch.zeros(bs, self.max_enc_len, self.max_enc_len),
+            "encoder_attention_mask": torch.zeros(bs, self.max_dec_len, self.max_dec_len), # cross attention mask
+            "decoder_attention_mask": torch.zeros(bs, self.max_dec_len, self.max_enc_len),
+            "labels": torch.zeros(bs, self.max_dec_len, dtype=torch.long) * self.pad_id,
         }
 
         for b in range(bs):
-            batch["enc_input_ids"][b, :len(contexts[b])] = torch.tensor(contexts[b], dtype=torch.long)
-            batch["dec_input_ids"][b, :len(targets[b])] = torch.tensor(targets[b], dtype=torch.long)
-            no_model_batch["labels"][b, :len(labels[b])] = torch.tensor(labels[b], dtype=torch.long)
-            no_model_batch["loss_mask"][b, :len(labels[b])] = 1
+            context_length = len(contexts[b])
+            label_length = len(labels[b])
+            batch["input_ids"][b, :context_length] = torch.tensor(contexts[b], dtype=torch.long)
+            batch["labels"][b, :label_length] = torch.tensor(labels[b], dtype=torch.long)
 
-            batch["enc_attention_mask"][b, 0, :len(contexts[b]), :len(contexts[b])] = 1
-            batch["dec_attention_mask"][b, 0, :len(targets[b]), :len(targets[b])] = torch.tril(torch.ones(len(targets[b]), len(targets[b])))
-            batch["cross_attention_mask"][b, 0, :len(targets[b]), :len(contexts[b])] = 1
+            batch["attention_mask"][b, :context_length, :context_length] = 1
+            batch["decoder_attention_mask"][b, :label_length-1, :label_length-1] = torch.tril(torch.ones(label_length-1, label_length-1))
+            batch["encoder_attention_mask"][b, :label_length-1, :context_length] = 1 # cross attention mask
 
         if self.args.fp16:
             batch["enc_attention_mask"] = batch["enc_attention_mask"].half()
             batch["dec_attention_mask"] = batch["dec_attention_mask"].half()
             batch["cross_attention_mask"] = batch["cross_attention_mask"].half()
 
-
-        return batch, no_model_batch
+        return batch

@@ -161,12 +161,11 @@ class EVATokenizer(PreTrainedTokenizer):
         Returns:
             `List[int]`: List of [input IDs](../glossary#input-ids) with the appropriate special tokens.
         """
-        token_ids_0 = self._add_eos_if_not_present(token_ids_0)
-        if token_ids_1 is None:
-            return token_ids_0 + [self.get_sentinel_id(0)]
-        else:
-            token_ids_1 = self._add_eos_if_not_present(token_ids_1)
-            return token_ids_0 + token_ids_1 + [self.get_sentinel_id(0)]
+        token_ids = self._add_eos_if_not_present(token_ids_0)
+        if token_ids_1 is not None:
+            token_ids =  token_ids + [self.get_sentinel_id(0)]
+
+        return token_ids
     
     def _tokenize(self, text: str) -> List[str]:
         """ Tokenize a string. """

@@ -24,7 +24,6 @@ class EVAConfig(PretrainedConfig):
         dropout_rate=0.1,
         layer_norm_epsilon=1e-6,
         initializer_factor=1.0,
-        feed_forward_proj="relu",
         use_cache=False,
         use_scaled_init_for_output_weights=True,
         init_method_std=0.02,
@@ -34,6 +33,7 @@ class EVAConfig(PretrainedConfig):
         is_encoder_decoder=True,
         pad_token_id=5,
         eos_token_id=4,
+        bos_token_id=29810,
         tie_word_embeddings=False,
         **kwargs
     ):
@@ -41,6 +41,7 @@ class EVAConfig(PretrainedConfig):
             is_encoder_decoder=is_encoder_decoder,
             pad_token_id=pad_token_id,
             eos_token_id=eos_token_id,
+            bos_token_id=bos_token_id,
             tie_word_embeddings=tie_word_embeddings,
             **kwargs
         )
@@ -56,7 +57,6 @@ class EVAConfig(PretrainedConfig):
         self.dropout_rate = dropout_rate
         self.layer_norm_epsilon = layer_norm_epsilon
         self.initializer_factor = initializer_factor
-        self.feed_forward_proj = feed_forward_proj
         self.use_cache = use_cache
         self.use_scaled_init_for_output_weights = use_scaled_init_for_output_weights
         self.init_method_std = init_method_std
@@ -64,3 +64,4 @@ class EVAConfig(PretrainedConfig):
         self.vocab_size = vocab_size
         self.attn_scale = attn_scale
         self.is_encoder_decoder = is_encoder_decoder
+        self.decoder_start_token_id = bos_token_id

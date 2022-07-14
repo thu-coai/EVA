@@ -641,6 +641,12 @@ class Transformer(EVAPreTrainedModel):
 
         if attention_mask is None:
             attention_mask = torch.ones(batch_size, mask_seq_length).to(inputs_embeds.device)
+        
+        if attention_mask.dim() == 2 and self.is_decoder and past_key_values is None:
+            attention_mask = attention_mask.view(
+                batch_size, mask_seq_length, 1) * attention_mask.view(batch_size, 1, mask_seq_length)
+            attention_mask = torch.tril(attention_mask)
+            
         if self.is_decoder and cross_attention_mask is None and enc_hidden_states is not None:
             encoder_seq_length = enc_hidden_states.shape[1]
             cross_attention_mask = torch.ones(
