@@ -1,6 +1,6 @@
 import torch
 
-ckpt_eva = torch.load('/home/guyuxian/checkpoints/eva2.0/1/mp_rank_00_model_states.pt', map_location="cpu")
+ckpt_eva = torch.load('/home/COAI/EVA/checkpoints/eva2.0/1/mp_rank_00_model_states.pt', map_location="cpu")
 ckpt_eva = ckpt_eva["module"]
 ckpt_hf = {}
 
@@ -58,4 +58,4 @@ for i in range(24):
     ckpt_hf[f'decoder.block.{i}.layer.2.layer_norm.weight'] = ckpt_eva[f'decoder.blocks.{i}.ff.layer_norm.weight']
 
 
-torch.save(ckpt_hf,'/home/guyuxian/checkpoints/eva2.0-hf/pytorch_model.bin')
+torch.save(ckpt_hf,'/home/COAI/EVA/eva2.0-hf/pytorch_model.bin')

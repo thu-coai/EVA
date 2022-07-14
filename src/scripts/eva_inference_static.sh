@@ -1,6 +1,6 @@
 #! /bin/bash
 
-WORKING_DIR=/home/guyuxian/EVA
+WORKING_DIR=/home/COAI/EVA
 
 NUM_GPUS_PER_WORKER=1
 
