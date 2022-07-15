@@ -10,7 +10,7 @@
 ## 2 环境安装
 
 ```[bash]
-pip3 install -r requirements
+pip3 install -r requirements.txt
 ```
 
 ## 3 使用示例

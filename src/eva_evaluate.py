@@ -98,6 +98,7 @@ def evaluate(args, tokenizer, eval_dataset, eval_data_loader, model:EVAModel, de
                     top_p=args.top_p,
                     length_penalty=args.length_penalty,
                     no_repeat_ngram_size=args.no_repeat_ngram_size,
+                    repetition_penalty=args.repetition_penalty,
                     use_cache=True
                 )
                 model_gen_str = tokenizer.batch_decode(model_gen_tokens, skip_special_tokens=True)

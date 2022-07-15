@@ -36,7 +36,7 @@ OPTS+=" --temperature ${TEMP}"
 OPTS+=" --top_k ${TOPK}"
 OPTS+=" --top_p ${TOPP}"
 OPTS+=" --length-penalty 1.6"
-OPTS+=" --repetition-penalty 1"
+OPTS+=" --repetition-penalty 1.6"
 
 
 CMD="torchrun --master_port 1234 --nproc_per_node ${NUM_GPUS_PER_WORKER} ${WORKING_DIR}/src/eva_evaluate.py ${OPTS}"

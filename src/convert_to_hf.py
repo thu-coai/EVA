@@ -1,13 +1,16 @@
 import torch
 
-ckpt_eva = torch.load('/home/COAI/EVA/checkpoints/eva2.0/1/mp_rank_00_model_states.pt', map_location="cpu")
+ckpt_eva = torch.load('/home/guyuxian/EVA/checkpoints/eva1.0/1/mp_rank_00_model_states.pt', map_location="cpu")
 ckpt_eva = ckpt_eva["module"]
 ckpt_hf = {}
 
 ckpt_hf['shared.weight'] = ckpt_eva['word_embeds.weight']
-ckpt_hf['role_embeds.weight'] = ckpt_eva['role_embeds.weight']
-ckpt_hf['encoder.role_embeds.weight'] = ckpt_eva['encoder.role_embeds.weight']
-ckpt_hf['decoder.role_embeds.weight'] = ckpt_eva['decoder.role_embeds.weight']
+if "role_embeds.weight" in ckpt_hf:
+    ckpt_hf['role_embeds.weight'] = ckpt_eva['role_embeds.weight']
+if "encoder.role_embeds.weight" in ckpt_hf:
+    ckpt_hf['encoder.role_embeds.weight'] = ckpt_eva['encoder.role_embeds.weight']
+if "decoder.role_embeds.weight" in ckpt_hf:
+    ckpt_hf['decoder.role_embeds.weight'] = ckpt_eva['decoder.role_embeds.weight']
 ckpt_hf['lm_head.weight'] = ckpt_eva['lm_head.weight']
 ckpt_hf['encoder.embed_tokens.weight'] = ckpt_eva['encoder.word_embeds.weight']
 ckpt_hf['encoder.final_layer_norm.weight'] = ckpt_eva['encoder.final_layernorm.weight']
@@ -58,4 +61,4 @@ for i in range(24):
     ckpt_hf[f'decoder.block.{i}.layer.2.layer_norm.weight'] = ckpt_eva[f'decoder.blocks.{i}.ff.layer_norm.weight']
 
 
-torch.save(ckpt_hf,'/home/COAI/EVA/eva2.0-hf/pytorch_model.bin')
+torch.save(ckpt_hf,'/home/guyuxian/EVA/checkpoints/eva1.0-hf/pytorch_model.bin')

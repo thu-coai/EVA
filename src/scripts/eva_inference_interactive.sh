@@ -1,5 +1,5 @@
 #! /bin/bash
-WORKING_DIR=/home/COAI/EVA
+WORKING_DIR=/home/guyuxian/EVA
 
 TEMP=0.9
 
@@ -17,7 +17,7 @@ OPTS+=" --top_k ${TOPK}"
 OPTS+=" --top_p ${TOPP}"
 OPTS+=" --num-beams ${NUM_BEAMS}"
 OPTS+=" --length-penalty 1.6"
-OPTS+=" --repetition-penalty 1"
+OPTS+=" --repetition-penalty 1.6"
 
 
 CMD="python ${WORKING_DIR}/src/eva_interactive.py ${OPTS}"
