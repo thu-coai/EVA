@@ -1,11 +1,15 @@
 # README
 
-本分支是 EVA 代码的 HuggingFace版本，原始版本请见 [main 分支](https://github.com/thu-coai/EVA/tree/main)。
+本分支是 EVA 代码的 HuggingFace 版本，原始版本请见 [main 分支](https://github.com/thu-coai/EVA/tree/main)。
 
 ## 1 模型下载
 
 从 HuggingFace 模型仓库中下载，现在支持以下模型：
 + [EVA2.0-xLarge](https://huggingface.co/thu-coai/EVA2.0-xlarge)
++ [EVA2.0-large](https://huggingface.co/thu-coai/EVA2.0-large)
++ [EVA2.0-base](https://huggingface.co/thu-coai/EVA2.0-base)
++ [EVA1.0](https://huggingface.co/thu-coai/EVA1.0)
+
 
 ## 2 环境安装
 
@@ -33,6 +37,8 @@ gen = model.generate(input_ids, do_sample=True, decoder_start_token_id=tokenizer
 print(tokenizer.decode(gen[0], skip_special_tokens=True))
 ```
 
+将原始版本模型转换成 HuggingFace 版本的代码位于 `src/convert_to_hf.py`。
+
 ## 4 生成测试
 
 ```[bash]
@@ -51,6 +57,7 @@ bash scripts/eva_inference_static.sh # 静态评测
   journal={arXiv preprint arXiv:2108.01547},
   year={2021}
 }
+
 @article{coai2022eva2,
   title={{EVA2.0}: Investigating Open-Domain Chinese Dialogue Systems with Large-Scale Pre-Training},
   author={Gu, Yuxian and Wen, Jiaxin and Sun, Hao and Song, Yi and Ke, Pei and Zheng, Chujie and Zhang, Zheng and Yao, Jianzhu and Zhu, Xiaoyan and Tang, Jie and Huang, Minlie},

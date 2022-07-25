@@ -47,6 +47,7 @@ def generate_samples(model, tokenizer: EVATokenizer, args, device):
                 top_p=args.top_p,
                 length_penalty=args.length_penalty,
                 no_repeat_ngram_size=args.no_repeat_ngram_size,
+                encoder_no_repeat_ngram_size=args.no_repeat_ngram_size,
                 repetition_penalty=args.repetition_penalty,
                 use_cache=True
             )
