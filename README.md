@@ -13,7 +13,7 @@
 
 ## 2 环境安装
 
-```[bash]
+```bash
 pip3 install -r requirements.txt
 ```
 
@@ -21,7 +21,7 @@ pip3 install -r requirements.txt
 
 如 `src/example.py` 所示：
 
-```[python]
+```python
 from model import EVAModel, EVATokenizer
 
 tokenizer = EVATokenizer.from_pretrained("/PATH-TO-EVA-CHECKPOINT/")
@@ -41,7 +41,7 @@ print(tokenizer.decode(gen[0], skip_special_tokens=True))
 
 ## 4 生成测试
 
-```[bash]
+```bash
 bash scripts/eva_inference_interactive.sh # 交互式生成
 bash scripts/eva_inference_static.sh # 静态评测
 ```
