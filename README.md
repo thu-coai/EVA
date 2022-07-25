@@ -20,7 +20,7 @@ EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，�
 
 EVA1.0 和 EVA2.0-xLarge 模型可以从[智源下载专区](https://wudaoai.cn/model/detail/EVA)下载，EVA1.0 下载后的目录应该具有如下结构：
 
-```[bash]
+```bash
 eva/
 ├── 222500
 │   └── mp_rank_00_model_states.pt
@@ -29,7 +29,7 @@ eva/
 
 EVA2.0 下载后的目录应该具有如下结构：
 
-```[bash]
+```bash
 eva2/
 ├── 1
 │   └── mp_rank_00_model_states.pt
@@ -66,7 +66,7 @@ pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp
 
 我们使用了 `v0.3.9` 版本的 deepspeed，可以从[此仓库](https://github.com/microsoft/DeepSpeed/releases/tag/v0.3.9)中下载安装，或者运行如下命令：
 
-```[bash]
+```bash
 pip install deepspeed==0.3.9
 ```
 
@@ -74,13 +74,13 @@ pip install deepspeed==0.3.9
 
 #### 方式2: 使用 Docker
 
-```[bash]
+```bash
 docker pull gyxthu17/eva:1.5
 ```
 
 因为上述环境已经在 docker 中预装，您不需要再设置任何环境变量了。为了运行代码，您可能需要将此仓库挂在到 docker 中的目录，例如，`/mnt` 目录。为此，您可以运行如下代码：
 
-```[bash]
+```bash
 docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.5 /bin/bash
 ```
 
@@ -102,7 +102,7 @@ docker run -ti -v ${PWD}:/mnt gyxthu17/eva:1.5 /bin/bash
 
 上述修改修改完成后运行：
 
-```[bash]
+```bash
 cd src/
 bash scripts/eva_inference_interactive_beam.sh # 交互式评测，使用 beam search 解码
 bash scripts/eva_inference_interactive_no_beam.sh # 交互式评测，不使用 beam search 解码
@@ -118,7 +118,7 @@ bash scripts/eva_finetune.sh # 微调模型
 
 如果发现单卡显存不够，可以使用 `src/change_mp.py` 更改模型并行度，下面命令中 `TARGET_MP` 表示目标模型并行度。下载下来的模型并行度为1，即所有模型参数在用一张 GPU 上，可以通过增加并行度将一个模型的参数分摊到多个卡上，从而减少单张卡的显存占用（当然，这可能意味着需要用更多的卡来训练）。注意对下载的模型修改之后还要将训练/推理脚本中的 `MP_SIZE` 修改为对应的并行度。
 
-```[bash]
+```bash
 cd src/
 python3 change_mp.py ${INPUT_MODEL_DIR} ${OUTPUT_MODEL_DIR} ${TARGET_MP}
 ```
@@ -137,7 +137,7 @@ python3 change_mp.py ${INPUT_MODEL_DIR} ${OUTPUT_MODEL_DIR} ${TARGET_MP}
 
 使用 beam search 对 EVA2.0 模型进行交互式评测，我们获得了如下样例。
 
-```[]
+```
 Usr >>> 你好
 Sys >>> 你好，请问你是？
 Usr >>> 我是小明
@@ -172,12 +172,12 @@ Sys >>> 拜～
 + ~~EVA2.0 模型下载链接~~
 + ~~EVA2.0 技术报告~~
 + ~~开源小规模模型~~
-+ huggingface 版本的模型/对应代码
++ ~~huggingface 版本的模型/对应代码~~
 + 预训练数据处理代码开源
 
 ## 7 引用
 
-```[]
+```
 @article{coai2021eva,
   title={{EVA}: An Open-Domain Chinese Dialogue System with Large-Scale Generative Pre-Training},
   author={Zhou, Hao and Ke, Pei and Zhang, Zheng and Gu, Yuxian and Zheng, Yinhe and Zheng, Chujie and Wang, Yida and Wu, Chen Henry and Sun, Hao and Yang, Xiaocong and Wen, Bosi and Zhu, Xiaoyan and Huang, Minlie and Tang, Jie},
