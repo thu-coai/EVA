@@ -45,13 +45,10 @@ class RandomSampler(data.sampler.Sampler):
 
     def __iter__(self):
         n = len(self.data_source)
-        g = torch.Generator()
-        if self.epoch >= 0:
-            g.manual_seed(self.epoch)
         if self.replacement:
             return iter(torch.randint(high=n, size=(self.num_samples,),
-                                      dtype=torch.int64, generator=g).tolist())
-        return iter(torch.randperm(n, generator=g).tolist())
+                                      dtype=torch.int64).tolist())
+        return iter(torch.randperm(n).tolist())
 
     def __len__(self):
         return self.num_samples
