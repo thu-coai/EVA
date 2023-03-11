@@ -18,25 +18,7 @@ EVA 是目前最大的开源中文预训练对话模型，拥有28亿参数，�
 
 ## 2 模型下载
 
-EVA1.0 和 EVA2.0-xLarge 模型可以从[智源下载专区](https://wudaoai.cn/model/detail/EVA)下载，EVA1.0 下载后的目录应该具有如下结构：
-
-```bash
-eva/
-├── 222500
-│   └── mp_rank_00_model_states.pt
-├── latest_checkpointed_iteration.txt
-```
-
-EVA2.0 下载后的目录应该具有如下结构：
-
-```bash
-eva2/
-├── 1
-│   └── mp_rank_00_model_states.pt
-├── latest_checkpointed_iteration.txt
-```
-
-EVA2.0-base 和 EVA2.0-large 模型可以从[此处](https://drive.google.com/drive/folders/1LoEl-j_BGn2gqGMwkXiWCNGjEYBWKeAP?usp=sharing)下载。
+EVA2.0-base, EVA2.0-large 和EVA2.0-xlarge 模型可以从[此处](https://drive.google.com/drive/folders/1LoEl-j_BGn2gqGMwkXiWCNGjEYBWKeAP?usp=sharing)下载。
 
 ## 3 运行
 
