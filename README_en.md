@@ -16,25 +16,7 @@ EVA is the largest open-source Chinese dialogue model with up to 2.8B parameters
 We provide the interactive inference, static inference, and finetuning code of EVA in this repo.
 
 ## 2 Model Download
-EVA1.0 and EVA2.0-xLarge model can be downloaded from [BAAI repository](https://wudaoai.cn/model/detail/EVA), the downloaded directory of EVA1.0 should look like this:
-
-```[bash]
-eva/
-├── 222500
-│   └── mp_rank_00_model_states.pt
-├── latest_checkpointed_iteration.txt
-```
-
-The downloaded directory of EVA2.0 should look like this:
-
-```[bash]
-eva2/
-├── 1
-│   └── mp_rank_00_model_states.pt
-├── latest_checkpointed_iteration.txt
-```
-
-The EVA2.0-base and EVA2.0-large model can be downloaded from [this link](https://drive.google.com/drive/folders/1LoEl-j_BGn2gqGMwkXiWCNGjEYBWKeAP?usp=sharing).
+The EVA2.0-base, EVA2.0-large, and EVA2.0-xlarge model can be downloaded from [this link](https://drive.google.com/drive/folders/1LoEl-j_BGn2gqGMwkXiWCNGjEYBWKeAP?usp=sharing).
 
 ## 3 Run the Code
 
